@@ -36,7 +36,7 @@ app.add_middleware(
 SENSOR_DATA_FILE = "sensor_data.json"
 CSV_FILE_PATH = "sensor_data.csv"
 
-# ✅ Sensor Categories
+# ✅ New Category for the New Sensor Type
 SENSOR_CATEGORIES = {
     "rain_gauge": [
         "QCPU", "Masambong", "Batasan Hills", "Ugong Norte", "Ramon Magsaysay HS",
@@ -58,7 +58,10 @@ SENSOR_CATEGORIES = {
         "Christine Street", "Ramon Magsaysay Brgy Hall", "Phil-Am", "Holy Spirit",
         "Libis", "South Triangle", "Nagkaisang Nayon", "Tandang Sora", "Talipapa"
     ],
-    "earthquake_sensors": ["QCDRRMO", "QCDRRMO REC"]
+    "earthquake_sensors": ["QCDRRMO", "QCDRRMO REC"],
+    "new_sensor_category": [  # The new category you want to add
+        "New Sensor 1", "New Sensor 2", "New Sensor 3"
+    ]
 }
 
 def setup_chrome_driver():
