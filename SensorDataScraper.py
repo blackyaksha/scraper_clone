@@ -17,8 +17,8 @@ import os
 
 # Set all internal file reads/writes to be relative to this script
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SENSOR_DATA_FILE = os.path.join(BASE_DIR, "sensor_data.json")
-CSV_FILE_PATH = os.path.join(BASE_DIR, "sensor_data.csv")
+SENSOR_DATA_FILE = os.path.join("/tmp", "sensor_data.json")
+CSV_FILE_PATH = os.path.join("/tmp", "sensor_data.csv")
 
 # Configure logging
 logging.basicConfig(
