@@ -10,37 +10,41 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 from typing import Dict, List, Any
 import logging
 import os
 
-# Set all internal file reads/writes to be relative to /tmp
+# Set all internal file reads/writes to be relative to this script
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Runtime storage (always updated here)
-SENSOR_DATA_FILE = os.path.join("/tmp", "sensor_data.json")
-CSV_FILE_PATH = os.path.join("/tmp", "sensor_data.csv")
-
-# Fallback copy from your repo (read-only)
-DEFAULT_SENSOR_DATA_FILE = os.path.join(BASE_DIR, "sensor_data.json")
+SENSOR_DATA_FILE = os.path.join(BASE_DIR, "sensor_data.json")
+CSV_FILE_PATH = os.path.join(BASE_DIR, "sensor_data.csv")
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
 # FastAPI Web App
 app = FastAPI(title="Flood Data Scraper API")
 
+# Ensure sensor_data.json exists on startup
+try:
+    if not os.path.exists(SENSOR_DATA_FILE):
+        print("Sensor data file not found, running initial scrape...")
+        scrape_sensor_data()
+except Exception as e:
+    print(f"Error running initial data scrape: {e}")
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=["*"],  # Allows all origins
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 SENSOR_CATEGORIES = {
@@ -49,13 +53,7 @@ SENSOR_CATEGORIES = {
         "UP Village", "Dona Imelda", "Kaligayahan", "Emilio Jacinto Sr HS", "Payatas ES",
         "Ramon Magsaysay Brgy Hall", "Phil-Am", "Holy Spirit", "Libis",
         "South Triangle", "Nagkaisang Nayon", "Tandang Sora", "Talipapa",
-        "Balingasa High School", "Toro Hills Elementary School", "Quezon City University San Francisco Campus", 
-        "Maharlika Brgy Hall", "Bagong Silangan Evacuation Center", "Dona Juana Elementary School",
-        "Quirino High School", "Old Balara Elementary School", "Pansol Kaingin 1 Brgy Satellite Office",
-        "Jose P Laurel Senior High School", "Pinyahan Multipurose Hall", "Sikatuna Brgy Hall",
-        "Kalusugan Brgy Hall", "Laging Handa Barangay Hall", "Amoranto Sport Complex", "Maligaya High School",
-        "San Agustin Brgy Hall", "Jose Maria Panganiban Senior High School", "North Fairview Elementary School",
-        "Sauyo Elementary School", "New Era Brgy Hall", "Ismael Mathay Senior High School"
+        "Brgy Fairview (REC)", "Brgy Baesa Hall", "Brgy N.S Amoranto Hall", "Brgy Valencia Hall"
     ],
     "flood_sensors": [
         "North Fairview", "Batasan-San Mateo", "Bahay Toro", "Sta Cruz", "San Bartolome"
@@ -73,12 +71,12 @@ SENSOR_CATEGORIES = {
     "earthquake_sensors": ["QCDRRMO", "QCDRRMO REC"]
 }
 
-
 def setup_chrome_driver():
     """Setup Chrome WebDriver with proper options and error handling"""
     try:
         chrome_options = Options()
         chrome_options.binary_location = "/usr/bin/chromium"
+        chrome_options.add_argument("--headless")
         chrome_options.add_argument("--headless=new")  # Use new headless mode
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
@@ -88,7 +86,9 @@ def setup_chrome_driver():
         chrome_options.add_argument("--disable-software-rasterizer")
         chrome_options.add_argument("--disable-features=VizDisplayCompositor")
         chrome_options.add_argument("--disable-features=IsolateOrigins,site-per-process")
-        chrome_options.add_argument("--disable-features=NetworkService,NetworkServiceInProcess,NetworkServiceInProcess2")
+        chrome_options.add_argument("--disable-features=NetworkService")
+        chrome_options.add_argument("--disable-features=NetworkServiceInProcess")
+        chrome_options.add_argument("--disable-features=NetworkServiceInProcess2")
         chrome_options.add_argument("--disable-gpu-sandbox")
         chrome_options.add_argument("--disable-accelerated-2d-canvas")
         chrome_options.add_argument("--disable-accelerated-jpeg-decoding")
@@ -98,7 +98,7 @@ def setup_chrome_driver():
         chrome_options.add_argument("--disable-webgl")
         chrome_options.add_argument("--disable-webgl2")
         chrome_options.add_argument("--disable-3d-apis")
-
+        # Initialize ChromeDriver
         service = Service("/usr/bin/chromedriver")
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.set_page_load_timeout(60)
@@ -107,7 +107,6 @@ def setup_chrome_driver():
     except Exception as e:
         logger.error(f"Failed to initialize Chrome WebDriver: {str(e)}")
         raise
-
 
 def wait_for_page_load(driver, url, max_retries=3):
     """Wait for page to load with retry logic"""
@@ -126,7 +125,6 @@ def wait_for_page_load(driver, url, max_retries=3):
             time.sleep(5)
     return False
 
-
 def scrape_sensor_data():
     driver = None
     try:
@@ -134,74 +132,22 @@ def scrape_sensor_data():
         driver = setup_chrome_driver()
         url = "https://web.iriseup.ph/sensor_networks"
         logger.info(f"🌍 Fetching data from: {url}")
-
         if not wait_for_page_load(driver, url):
             raise TimeoutError("Failed to load page after multiple attempts")
 
         sensor_data = []
-
-        # Map table categories to table IDs or CSS selectors
-        table_categories = {
-            "rain_gauge": "rain-gauge-table",
-            "flood_sensors": "flood-sensors-table",
-            "street_flood_sensors": "street-flood-table",
-            "flood_risk_index": "flood-risk-table",
-            "earthquake_sensors": "earthquake-table",
-        }
-
-        for category, table_id in table_categories.items():
-            table = driver.find_element(By.ID, table_id)
-            rows = table.find_elements(By.CSS_SELECTOR, "tbody tr")
-
-            for row in rows:
-                cols = row.find_elements(By.TAG_NAME, "td")
-
-                # HARD-CODE column mapping per category
-                if category == "rain_gauge":
-                    if len(cols) >= 4:
-                        sensor_name = cols[0].text.strip()
-                        obs_time = cols[1].text.strip()
-                        current_level = cols[2].text.strip()
-                        normal_level = cols[3].text.strip()
-                        description = "N/A"
-
-                elif category == "flood_sensors":
-                    if len(cols) >= 3:
-                        sensor_name = cols[0].text.strip()
-                        normal_level = cols[1].text.strip()
-                        current_level = cols[2].text.strip()
-                        obs_time = "N/A"
-                        description = "N/A"
-
-                elif category == "street_flood_sensors":
-                    if len(cols) >= 4:
-                        sensor_name = cols[0].text.strip()
-                        normal_level = cols[1].text.strip()
-                        current_level = cols[2].text.strip()
-                        description = cols[3].text.strip()
-                        obs_time = "N/A"
-
-                elif category == "flood_risk_index":
-                    if len(cols) >= 4:
-                        sensor_name = cols[0].text.strip()
-                        obs_time = cols[1].text.strip()
-                        current_level = cols[2].text.strip()
-                        normal_level = cols[3].text.strip()
-                        description = "N/A"
-
-                elif category == "earthquake_sensors":
-                    if len(cols) >= 3:
-                        sensor_name = cols[0].text.strip()
-                        obs_time = cols[1].text.strip()
-                        current_level = cols[2].text.strip()
-                        normal_level = "N/A"
-                        description = "N/A"
-
-                # Append sensor data
+        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+        for row in rows:
+            cols = row.find_elements(By.TAG_NAME, "td")
+            if len(cols) >= 5:
+                sensor_name = cols[0].text.strip()
+                location = cols[1].text.strip()
+                current_level = cols[3].text.strip()
+                normal_level = cols[2].text.strip()
+                description = cols[4].text.strip() if len(cols) > 4 else "N/A"
                 sensor_data.append({
-                    "CATEGORY": category,
                     "SENSOR NAME": sensor_name,
-                    "OBS TIME": obs_time,
+                    "OBS TIME": location,
                     "NORMAL LEVEL": normal_level,
                     "CURRENT": current_level,
                     "DESCRIPTION": description
@@ -209,12 +155,10 @@ def scrape_sensor_data():
 
         if not sensor_data:
             raise ValueError("No sensor data extracted. Check website structure.")
-
         logger.info(f"✅ Successfully scraped {len(sensor_data)} sensor records")
         save_csv(sensor_data)
         convert_csv_to_json()
         logger.info("✅ Sensor data updated successfully")
-
     except Exception as e:
         logger.error(f"❌ Scraping Failed: {str(e)}")
         raise
@@ -230,54 +174,65 @@ def save_csv(sensor_data):
     df.to_csv(CSV_FILE_PATH, index=False)
     print("✅ CSV file saved successfully with all sensor data.")
 
-
 def convert_csv_to_json():
     df = pd.read_csv(CSV_FILE_PATH)
-
-    # Hardcoded schema per category for JSON
-    category_schemas = {
-        "rain_gauge": ["SENSOR NAME", "CURRENT"],
-        "flood_sensors": ["SENSOR NAME", "NORMAL LEVEL", "CURRENT"],
-        "street_flood_sensors": ["SENSOR NAME", "NORMAL LEVEL", "CURRENT", "DESCRIPTION"],
-        "flood_risk_index": ["SENSOR NAME", "CURRENT"],
-        "earthquake_sensors": ["SENSOR NAME", "CURRENT"],
-    }
-
-    categorized_data = {category: [] for category in category_schemas}
-    csv_rows = []
-    csv_columns = ["Category"] + sorted(set(sum(category_schemas.values(), [])))
-
-    # Loop through categories
-    for category in category_schemas:
-        sensors = df[df["CATEGORY"] == category]
-        for _, row in sensors.iterrows():
-            sensor_entry = {field: row[field] if field in row else "N/A"
-                            for field in category_schemas[category]}
+    categorized_data = {category: [] for category in SENSOR_CATEGORIES}
+    for _, row in df.iterrows():
+        sensor_name = row["SENSOR NAME"]
+        current_value = row["CURRENT"]
+        normal_value = row["NORMAL LEVEL"] if "NORMAL LEVEL" in df.columns else "N/A"
+        description = row["DESCRIPTION"] if "DESCRIPTION" in df.columns else "N/A"
+        sensor_entry = {
+            "SENSOR NAME": sensor_name,
+            "CURRENT": current_value,
+        }
+        if "m" in str(current_value):
+            category = "street_flood_sensors"
+            sensor_entry["NORMAL LEVEL"] = normal_value
+            sensor_entry["DESCRIPTION"] = description
+        else:
+            category = "flood_risk_index"
+        if sensor_name in SENSOR_CATEGORIES[category]:
             categorized_data[category].append(sensor_entry)
-
-            csv_entry = {col: "" for col in csv_columns}
-            csv_entry["Category"] = category
-            for field in category_schemas[category]:
-                csv_entry[field] = sensor_entry[field]
-            csv_rows.append(csv_entry)
-
-    # Save JSON
+    for category, sensors in SENSOR_CATEGORIES.items():
+        if category not in ["street_flood_sensors", "flood_risk_index"]:
+            for sensor_name in sensors:
+                matching_sensor = df[df["SENSOR NAME"].str.casefold() == sensor_name.casefold()]
+                if not matching_sensor.empty:
+                    normal_value = matching_sensor.iloc[0]["NORMAL LEVEL"] if "NORMAL LEVEL" in df.columns else "N/A"
+                    current_value = matching_sensor.iloc[0]["CURRENT"]
+                    description = matching_sensor.iloc[0]["DESCRIPTION"] if "DESCRIPTION" in df.columns else "N/A"
+                    sensor_entry = {
+                        "SENSOR NAME": sensor_name,
+                        "CURRENT": current_value,
+                    }
+                    if category in ["flood_sensors"]:
+                        sensor_entry["NORMAL LEVEL"] = normal_value
+                        sensor_entry["DESCRIPTION"] = description
+                    categorized_data[category].append(sensor_entry)
+                else:
+                    sensor_entry = {
+                        "SENSOR NAME": sensor_name,
+                        "CURRENT": "0.0m" if category == "street_flood_sensors" else 0.0,
+                    }
+                    if category in ["flood_sensors"]:
+                        sensor_entry["NORMAL LEVEL"] = "N/A"
+                        sensor_entry["DESCRIPTION"] = "N/A"
+                    categorized_data[category].append(sensor_entry)
     with open(SENSOR_DATA_FILE, "w") as f:
         json.dump(categorized_data, f, indent=4)
-    print("✅ JSON file saved with strict category-based schema.")
+    print("✅ JSON data structured correctly with Street Flood Sensor Check.")
 
-    # Save CSV
-    df_csv = pd.DataFrame(csv_rows, columns=csv_columns)
-    df_csv.to_csv(CSV_FILE_PATH, index=False)
-    print("✅ Single CSV file saved with strict category-based schema.")
-
-@app.get("/api/sensor-data")
+@app.get("/api/sensor-data", response_model=Dict[str, List[Dict[str, Any]]])
 async def get_sensor_data():
-    if os.path.exists(SENSOR_DATA_FILE):
+    try:
         with open(SENSOR_DATA_FILE, "r") as f:
-            return json.load(f)
-    raise HTTPException(status_code=404, detail="Sensor data not available")
-
+            data = json.load(f)
+        return data
+    except (FileNotFoundError, json.JSONDecodeError):
+        # Return a minimal fallback structure, not a 404, so frontend can work (even if data is empty)
+        print("Warning: sensor_data.json not found or invalid, returning empty data.")
+        return {key: [] for key in SENSOR_CATEGORIES.keys()}
 
 def start_auto_scraper():
     while True:
@@ -289,32 +244,10 @@ def start_auto_scraper():
         print("⏳ Waiting 60 seconds before the next scrape...")
         time.sleep(60)
 
-
-# ✅ Ensure sensor_data.json exists on startup
-try:
-    if not os.path.exists(SENSOR_DATA_FILE):
-        print("⚡ No runtime sensor_data.json found, running initial scrape...")
-        try:
-            scrape_sensor_data()  # try live scrape
-        except Exception as scrape_error:
-            logger.error(f"❌ Initial scrape failed: {scrape_error}")
-
-            if os.path.exists(DEFAULT_SENSOR_DATA_FILE):
-                import shutil
-                shutil.copy(DEFAULT_SENSOR_DATA_FILE, SENSOR_DATA_FILE)
-                print("📦 Copied fallback sensor_data.json from repo to /tmp.")
-            else:
-                # Create empty JSON so API won’t crash
-                with open(SENSOR_DATA_FILE, "w") as f:
-                    json.dump({key: [] for key in SENSOR_CATEGORIES.keys()}, f, indent=4)
-                print("⚠️ No repo fallback found. Created empty /tmp/sensor_data.json.")
-except Exception as e:
-    print(f"Error in startup data init: {e}")
-
-# ✅ Start background scraper thread
+# Always start the background scraper thread (recommended for FastAPI deployment)
 scraper_thread = threading.Thread(target=start_auto_scraper, daemon=True)
 scraper_thread.start()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=10000, reload=False)
+    uvicorn.run("SensorDataScraper:app", host="0.0.0.0", port=10000, reload=False)
