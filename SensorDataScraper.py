@@ -43,22 +43,19 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-# Sensor categories
 SENSOR_CATEGORIES = {
     "rain_gauge": [
         "QCPU", "Masambong", "Batasan Hills", "Ugong Norte", "Ramon Magsaysay HS",
         "UP Village", "Dona Imelda", "Kaligayahan", "Emilio Jacinto Sr HS", "Payatas ES",
-        "Ramon Magsaysay Brgy Hall", "Phil-Am", "Holy Spirit", "Libis", "South Triangle",
-        "Nagkaisang Nayon", "Tandang Sora", "Talipapa", "Balingasa High School",
-        "Toro Hills Elementary School", "Quezon City University San Francisco Campus",
-        "Maharlika Brgy Hall", "Bagong Silangan Evacuation Center",
-        "Dona Juana Elementary School", "Quirino High School", "Old Balara Elementary School",
-        "Pansol Kaingin 1 Brgy Satellite Office", "Jose P Laurel Senior High School",
-        "Pinyahan Multipurose Hall", "Sikatuna Brgy Hall", "Kalusugan Brgy Hall",
-        "Laging Handa Barangay Hall", "Amoranto Sport Complex", "Maligaya High School",
-        "San Agustin Brgy Hall", "Jose Maria Panganiban Senior High School",
-        "North Fairview Elementary School", "Sauyo Elementary School", "New Era Brgy Hall",
-        "Ismael Mathay Senior High School"
+        "Ramon Magsaysay Brgy Hall", "Phil-Am", "Holy Spirit", "Libis",
+        "South Triangle", "Nagkaisang Nayon", "Tandang Sora", "Talipapa",
+        "Balingasa High School", "Toro Hills Elementary School", "Quezon City University San Francisco Campus", 
+        "Maharlika Brgy Hall", "Bagong Silangan Evacuation Center", "Dona Juana Elementary School",
+        "Quirino High School", "Old Balara Elementary School", "Pansol Kaingin 1 Brgy Satellite Office",
+        "Jose P Laurel Senior High School", "Pinyahan Multipurose Hall", "Sikatuna Brgy Hall",
+        "Kalusugan Brgy Hall", "Laging Handa Barangay Hall", "Amoranto Sport Complex", "Maligaya High School",
+        "San Agustin Brgy Hall", "Jose Maria Panganiban Senior High School", "North Fairview Elementary School",
+        "Sauyo Elementary School", "New Era Brgy Hall", "Ismael Mathay Senior High School"
     ],
     "flood_sensors": [
         "North Fairview", "Batasan-San Mateo", "Bahay Toro", "Sta Cruz", "San Bartolome"
@@ -143,7 +140,6 @@ def scrape_sensor_data():
 
         sensor_data = []
         rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
-
         for row in rows:
             cols = row.find_elements(By.TAG_NAME, "td")
             if len(cols) >= 5:
@@ -152,7 +148,6 @@ def scrape_sensor_data():
                 current_level = cols[3].text.strip()
                 normal_level = cols[2].text.strip()
                 description = cols[4].text.strip() if len(cols) > 4 else "N/A"
-
                 sensor_data.append({
                     "SENSOR NAME": sensor_name,
                     "OBS TIME": location,
@@ -165,7 +160,6 @@ def scrape_sensor_data():
             raise ValueError("No sensor data extracted. Check website structure.")
 
         logger.info(f"✅ Successfully scraped {len(sensor_data)} sensor records")
-
         save_csv(sensor_data)
         convert_csv_to_json()
         logger.info("✅ Sensor data updated successfully")
@@ -189,71 +183,58 @@ def save_csv(sensor_data):
 
 def convert_csv_to_json():
     df = pd.read_csv(CSV_FILE_PATH)
-
     categorized_data = {category: [] for category in SENSOR_CATEGORIES}
 
     for _, row in df.iterrows():
-        sensor_name = row.get("SENSOR NAME", "").strip()
-        obs_time = row.get("OBS TIME", "N/A")
-        current_value = row.get("CURRENT", "N/A")
-        normal_value = row.get("NORMAL LEVEL", "N/A")
-        description = row.get("DESCRIPTION", "N/A")
+        sensor_name = row["SENSOR NAME"]
+        current_value = row["CURRENT"]
+        normal_value = row["NORMAL LEVEL"] if "NORMAL LEVEL" in df.columns else "N/A"
+        description = row["DESCRIPTION"] if "DESCRIPTION" in df.columns else "N/A"
 
-        # Rain Gauge
-        if sensor_name in SENSOR_CATEGORIES["rain_gauge"]:
-            categorized_data["rain_gauge"].append({
-                "SENSOR NAME": sensor_name,
-                "CURRENT": current_value
-            })
+        sensor_entry = {
+            "SENSOR NAME": sensor_name,
+            "CURRENT": current_value,
+        }
 
-        # Flood Sensors
-        elif sensor_name in SENSOR_CATEGORIES["flood_sensors"]:
-            categorized_data["flood_sensors"].append({
-                "SENSOR NAME": sensor_name,
-                "NORMAL LEVEL": normal_value,
-                "CURRENT": current_value
-            })
+        if "m" in str(current_value):
+            category = "street_flood_sensors"
+            sensor_entry["NORMAL LEVEL"] = normal_value
+            sensor_entry["DESCRIPTION"] = description
+        else:
+            category = "flood_risk_index"
 
-        # Street Flood Sensors
-        elif sensor_name in SENSOR_CATEGORIES["street_flood_sensors"]:
-            categorized_data["street_flood_sensors"].append({
-                "SENSOR NAME": sensor_name,
-                "NORMAL LEVEL": normal_value,
-                "CURRENT": current_value,
-                "DESCRIPTION": description
-            })
+        if sensor_name in SENSOR_CATEGORIES[category]:
+            categorized_data[category].append(sensor_entry)
 
-        # Flood Risk Index
-        elif sensor_name in SENSOR_CATEGORIES["flood_risk_index"]:
-            categorized_data["flood_risk_index"].append({
-                "SENSOR NAME": sensor_name,
-                "CURRENT": current_value,
-                "RISK INDEX": normal_value
-            })
+    for category, sensors in SENSOR_CATEGORIES.items():
+        if category not in ["street_flood_sensors", "flood_risk_index"]:
+            for sensor_name in sensors:
+                matching_sensor = df[df["SENSOR NAME"].str.casefold() == sensor_name.casefold()]
+                if not matching_sensor.empty:
+                    normal_value = matching_sensor.iloc[0]["NORMAL LEVEL"] if "NORMAL LEVEL" in df.columns else "N/A"
+                    current_value = matching_sensor.iloc[0]["CURRENT"]
+                    description = matching_sensor.iloc[0]["DESCRIPTION"] if "DESCRIPTION" in df.columns else "N/A"
+                    sensor_entry = {
+                        "SENSOR NAME": sensor_name,
+                        "CURRENT": current_value,
+                    }
+                    if category in ["flood_sensors"]:
+                        sensor_entry["NORMAL LEVEL"] = normal_value
+                        sensor_entry["DESCRIPTION"] = description
+                    categorized_data[category].append(sensor_entry)
+                else:
+                    sensor_entry = {
+                        "SENSOR NAME": sensor_name,
+                        "CURRENT": "0.0m" if category == "street_flood_sensors" else 0.0,
+                    }
+                    if category in ["flood_sensors"]:
+                        sensor_entry["NORMAL LEVEL"] = "N/A"
+                        sensor_entry["DESCRIPTION"] = "N/A"
+                    categorized_data[category].append(sensor_entry)
 
-        # Earthquake Sensors
-        elif sensor_name in SENSOR_CATEGORIES["earthquake_sensors"]:
-            categorized_data["earthquake_sensors"].append({
-                "SENSOR NAME": sensor_name,
-                "CURRENT": current_value
-            })
-
-    # Save JSON
     with open(SENSOR_DATA_FILE, "w") as f:
         json.dump(categorized_data, f, indent=4)
-    print("✅ JSON data structured correctly with hardcoded formats.")
-
-    # Save CSV with category-based arrangement
-    csv_rows = []
-    for category, sensors in categorized_data.items():
-        for s in sensors:
-            row = {"CATEGORY": category}
-            row.update(s)
-            csv_rows.append(row)
-
-    csv_df = pd.DataFrame(csv_rows)
-    csv_df.to_csv(CSV_FILE_PATH, index=False)
-    print("✅ CSV file saved with category-based arrangement.")
+    print("✅ JSON data structured correctly with Street Flood Sensor Check.")
 
 
 @app.get("/api/sensor-data")
@@ -275,26 +256,28 @@ def start_auto_scraper():
         time.sleep(60)
 
 
-# Ensure sensor_data.json exists on startup
+# ✅ Ensure sensor_data.json exists on startup
 try:
     if not os.path.exists(SENSOR_DATA_FILE):
         print("⚡ No runtime sensor_data.json found, running initial scrape...")
         try:
-            scrape_sensor_data()
+            scrape_sensor_data()  # try live scrape
         except Exception as scrape_error:
             logger.error(f"❌ Initial scrape failed: {scrape_error}")
+
             if os.path.exists(DEFAULT_SENSOR_DATA_FILE):
                 import shutil
                 shutil.copy(DEFAULT_SENSOR_DATA_FILE, SENSOR_DATA_FILE)
                 print("📦 Copied fallback sensor_data.json from repo to /tmp.")
             else:
+                # Create empty JSON so API won’t crash
                 with open(SENSOR_DATA_FILE, "w") as f:
                     json.dump({key: [] for key in SENSOR_CATEGORIES.keys()}, f, indent=4)
                 print("⚠️ No repo fallback found. Created empty /tmp/sensor_data.json.")
 except Exception as e:
     print(f"Error in startup data init: {e}")
 
-# Start background scraper thread
+# ✅ Start background scraper thread
 scraper_thread = threading.Thread(target=start_auto_scraper, daemon=True)
 scraper_thread.start()
 
