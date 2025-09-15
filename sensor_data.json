@@ -1,0 +1,300 @@
+{
+    "rain_gauge": [
+        {
+            "SENSOR NAME": "QCPU",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Masambong",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Batasan Hills",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Ugong Norte",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Ramon Magsaysay HS",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "UP Village",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Dona Imelda",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Kaligayahan",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Emilio Jacinto Sr HS",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Payatas ES",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Ramon Magsaysay Brgy Hall",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Phil-Am",
+            "CURRENT": "1.25"
+        },
+        {
+            "SENSOR NAME": "Holy Spirit",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Libis",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "South Triangle",
+            "CURRENT": "1.25"
+        },
+        {
+            "SENSOR NAME": "Nagkaisang Nayon",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Tandang Sora",
+            "CURRENT": "1.25"
+        },
+        {
+            "SENSOR NAME": "Talipapa",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Brgy Fairview (REC)",
+            "CURRENT": "1.4"
+        },
+        {
+            "SENSOR NAME": "Brgy Baesa Hall",
+            "CURRENT": "1.58"
+        },
+        {
+            "SENSOR NAME": "Brgy N.S Amoranto Hall",
+            "CURRENT": "1.54"
+        },
+        {
+            "SENSOR NAME": "Brgy Valencia Hall",
+            "CURRENT": "1.48"
+        }
+    ],
+    "flood_sensors": [
+        {
+            "SENSOR NAME": "North Fairview",
+            "CURRENT": "6.81",
+            "NORMAL LEVEL": "6.87",
+            "DESCRIPTION": "6.81"
+        },
+        {
+            "SENSOR NAME": "Batasan-San Mateo",
+            "CURRENT": "10.13",
+            "NORMAL LEVEL": "10.2",
+            "DESCRIPTION": "10.13"
+        },
+        {
+            "SENSOR NAME": "Bahay Toro",
+            "CURRENT": "8.31",
+            "NORMAL LEVEL": "8.54",
+            "DESCRIPTION": "8.31"
+        },
+        {
+            "SENSOR NAME": "Sta Cruz",
+            "CURRENT": "9.16",
+            "NORMAL LEVEL": "9.1",
+            "DESCRIPTION": "9.16"
+        },
+        {
+            "SENSOR NAME": "San Bartolome",
+            "CURRENT": "6.43",
+            "NORMAL LEVEL": "6.25",
+            "DESCRIPTION": "6.43"
+        }
+    ],
+    "street_flood_sensors": [
+        {
+            "SENSOR NAME": "N.S. Amoranto Street",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "New Greenland",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "Kalantiaw Street",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "F. Calderon Street",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "Christine Street",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "Ramon Magsaysay Brgy Hall",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "Phil-Am",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "Holy Spirit",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "Libis",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "South Triangle",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "Nagkaisang Nayon",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "Tandang Sora",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        },
+        {
+            "SENSOR NAME": "Talipapa",
+            "CURRENT": "0.0 m",
+            "NORMAL LEVEL": "0.0 m",
+            "DESCRIPTION": "No Flood"
+        }
+    ],
+    "flood_risk_index": [
+        {
+            "SENSOR NAME": "Ramon Magsaysay Brgy Hall",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Phil-Am",
+            "CURRENT": "1.25"
+        },
+        {
+            "SENSOR NAME": "Holy Spirit",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Libis",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "South Triangle",
+            "CURRENT": "1.25"
+        },
+        {
+            "SENSOR NAME": "Nagkaisang Nayon",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Tandang Sora",
+            "CURRENT": "1.25"
+        },
+        {
+            "SENSOR NAME": "Talipapa",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "N.S. Amoranto Street",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "New Greenland",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Kalantiaw Street",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "F. Calderon Street",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Christine Street",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Ramon Magsaysay Brgy Hall",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Phil-Am",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Holy Spirit",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Libis",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "South Triangle",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Nagkaisang Nayon",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Tandang Sora",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "Talipapa",
+            "CURRENT": "0.0"
+        }
+    ],
+    "earthquake_sensors": [
+        {
+            "SENSOR NAME": "QCDRRMO",
+            "CURRENT": "0.0"
+        },
+        {
+            "SENSOR NAME": "QCDRRMO REC",
+            "CURRENT": "0.0"
+        }
+    ]
+}

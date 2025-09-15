@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: flood-sensor-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: ./start.sh
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
