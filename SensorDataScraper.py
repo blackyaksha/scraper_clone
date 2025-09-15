@@ -145,8 +145,8 @@ def scrape_sensor_data():
             if len(cols) >= 5:
                 sensor_name = cols[0].text.strip()
                 location = cols[1].text.strip()
-                current_level = cols[3].text.strip()
-                normal_level = cols[2].text.strip()
+                current_level = cols[2].text.strip()
+                normal_level = cols[3].text.strip()
                 description = cols[4].text.strip() if len(cols) > 4 else "N/A"
                 sensor_data.append({
                     "SENSOR NAME": sensor_name,
