@@ -177,51 +177,82 @@ def save_csv(sensor_data):
 def convert_csv_to_json():
     df = pd.read_csv(CSV_FILE_PATH)
     categorized_data = {category: [] for category in SENSOR_CATEGORIES}
-    for _, row in df.iterrows():
-        sensor_name = row["SENSOR NAME"]
-        current_value = row["CURRENT"]
-        normal_value = row["NORMAL LEVEL"] if "NORMAL LEVEL" in df.columns else "N/A"
-        description = row["DESCRIPTION"] if "DESCRIPTION" in df.columns else "N/A"
-        sensor_entry = {
-            "SENSOR NAME": sensor_name,
-            "CURRENT": current_value,
-        }
-        if "m" in str(current_value):
-            category = "street_flood_sensors"
-            sensor_entry["NORMAL LEVEL"] = normal_value
-            sensor_entry["DESCRIPTION"] = description
-        else:
-            category = "flood_risk_index"
-        if sensor_name in SENSOR_CATEGORIES[category]:
-            categorized_data[category].append(sensor_entry)
+
     for category, sensors in SENSOR_CATEGORIES.items():
-        if category not in ["street_flood_sensors", "flood_risk_index"]:
-            for sensor_name in sensors:
-                matching_sensor = df[df["SENSOR NAME"].str.casefold() == sensor_name.casefold()]
-                if not matching_sensor.empty:
-                    normal_value = matching_sensor.iloc[0]["NORMAL LEVEL"] if "NORMAL LEVEL" in df.columns else "N/A"
-                    current_value = matching_sensor.iloc[0]["CURRENT"]
-                    description = matching_sensor.iloc[0]["DESCRIPTION"] if "DESCRIPTION" in df.columns else "N/A"
+        for sensor_name in sensors:
+            matching = df[df["SENSOR NAME"].str.casefold() == sensor_name.casefold()]
+            if not matching.empty:
+                row = matching.iloc[0]
+                obs_time = row["OBS TIME"] if "OBS TIME" in df.columns else "N/A"
+                normal_value = row["NORMAL LEVEL"] if "NORMAL LEVEL" in df.columns else "N/A"
+                current_value = row["CURRENT"]
+                description = row["DESCRIPTION"] if "DESCRIPTION" in df.columns else "N/A"
+
+                # Build entry depending on category
+                if category == "rain_gauge":
                     sensor_entry = {
                         "SENSOR NAME": sensor_name,
-                        "CURRENT": current_value,
+                        "CURRENT": current_value
                     }
-                    if category in ["flood_sensors"]:
-                        sensor_entry["NORMAL LEVEL"] = normal_value
-                        sensor_entry["DESCRIPTION"] = description
-                    categorized_data[category].append(sensor_entry)
+                elif category == "flood_sensors":
+                    sensor_entry = {
+                        "SENSOR NAME": sensor_name,
+                        "NORMAL LEVEL": normal_value,
+                        "CURRENT": current_value
+                    }
+                elif category == "street_flood_sensors":
+                    sensor_entry = {
+                        "SENSOR NAME": sensor_name,
+                        "NORMAL LEVEL": normal_value,
+                        "CURRENT": current_value,
+                        "DESCRIPTION": description
+                    }
+                elif category == "flood_risk_index":
+                    sensor_entry = {
+                        "SENSOR NAME": sensor_name,
+                        "CURRENT": current_value
+                    }
+                elif category == "earthquake_sensors":
+                    sensor_entry = {
+                        "SENSOR NAME": sensor_name,
+                        "CURRENT": current_value
+                    }
                 else:
                     sensor_entry = {
                         "SENSOR NAME": sensor_name,
-                        "CURRENT": "0.0m" if category == "street_flood_sensors" else 0.0,
+                        "CURRENT": current_value
                     }
-                    if category in ["flood_sensors"]:
-                        sensor_entry["NORMAL LEVEL"] = "N/A"
-                        sensor_entry["DESCRIPTION"] = "N/A"
-                    categorized_data[category].append(sensor_entry)
+
+                categorized_data[category].append(sensor_entry)
+            else:
+                # If missing in scraped data, still include with blanks/defaults
+                if category == "rain_gauge":
+                    sensor_entry = {"SENSOR NAME": sensor_name, "CURRENT": "N/A"}
+                elif category == "flood_sensors":
+                    sensor_entry = {"SENSOR NAME": sensor_name, "NORMAL LEVEL": "N/A", "CURRENT": "N/A"}
+                elif category == "street_flood_sensors":
+                    sensor_entry = {"SENSOR NAME": sensor_name, "NORMAL LEVEL": "N/A", "CURRENT": "N/A", "DESCRIPTION": "N/A"}
+                elif category in ["flood_risk_index", "earthquake_sensors"]:
+                    sensor_entry = {"SENSOR NAME": sensor_name, "CURRENT": "N/A"}
+                else:
+                    sensor_entry = {"SENSOR NAME": sensor_name, "CURRENT": "N/A"}
+
+                categorized_data[category].append(sensor_entry)
+
+    # Save JSON
     with open(SENSOR_DATA_FILE, "w") as f:
         json.dump(categorized_data, f, indent=4)
-    print("✅ JSON data structured correctly with Street Flood Sensor Check.")
+
+    # Also save flattened CSV with categories
+    flat_data = []
+    for category, items in categorized_data.items():
+        for item in items:
+            entry = {"CATEGORY": category}
+            entry.update(item)
+            flat_data.append(entry)
+
+    pd.DataFrame(flat_data).to_csv(CSV_FILE_PATH, index=False)
+    print("✅ JSON and CSV structured correctly with hardcoded formats.")
 
 @app.get("/api/sensor-data", response_model=Dict[str, List[Dict[str, Any]]])
 async def get_sensor_data():
