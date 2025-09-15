@@ -126,6 +126,7 @@ def wait_for_page_load(driver, url, max_retries=3):
             time.sleep(5)
     return False
 
+
 def scrape_sensor_data():
     driver = None
     try:
@@ -139,9 +140,9 @@ def scrape_sensor_data():
 
         sensor_data = []
 
-        # Example: assume you have a mapping of table category identifiers
+        # Map table categories to table IDs or CSS selectors
         table_categories = {
-            "rain_gauge": "rain-gauge-table",  # e.g., table id or CSS class
+            "rain_gauge": "rain-gauge-table",
             "flood_sensors": "flood-sensors-table",
             "street_flood_sensors": "street-flood-table",
             "flood_risk_index": "flood-risk-table",
@@ -149,62 +150,61 @@ def scrape_sensor_data():
         }
 
         for category, table_id in table_categories.items():
-            # Locate the table
             table = driver.find_element(By.ID, table_id)
             rows = table.find_elements(By.CSS_SELECTOR, "tbody tr")
 
             for row in rows:
                 cols = row.find_elements(By.TAG_NAME, "td")
 
-                # Hardcode column mapping per category
+                # HARD-CODE column mapping per category
                 if category == "rain_gauge":
-                    if len(cols) >= 3:
+                    if len(cols) >= 4:
                         sensor_name = cols[0].text.strip()
-                        current_level = cols[1].text.strip()      # CURRENT column
-                        normal_level = cols[2].text.strip()       # NORMAL column
+                        obs_time = cols[1].text.strip()
+                        current_level = cols[2].text.strip()
+                        normal_level = cols[3].text.strip()
                         description = "N/A"
-                        location = "N/A"
 
                 elif category == "flood_sensors":
-                    if len(cols) >= 5:
+                    if len(cols) >= 3:
                         sensor_name = cols[0].text.strip()
-                        location = cols[1].text.strip()
-                        normal_level = cols[2].text.strip()
-                        current_level = cols[3].text.strip()
-                        description = cols[4].text.strip() if len(cols) > 4 else "N/A"
+                        normal_level = cols[1].text.strip()
+                        current_level = cols[2].text.strip()
+                        obs_time = "N/A"
+                        description = "N/A"
 
                 elif category == "street_flood_sensors":
-                    if len(cols) >= 5:
+                    if len(cols) >= 4:
                         sensor_name = cols[0].text.strip()
-                        location = cols[1].text.strip()
-                        normal_level = cols[2].text.strip()
-                        current_level = cols[3].text.strip()
-                        description = cols[4].text.strip() if len(cols) > 4 else "N/A"
+                        normal_level = cols[1].text.strip()
+                        current_level = cols[2].text.strip()
+                        description = cols[3].text.strip()
+                        obs_time = "N/A"
 
                 elif category == "flood_risk_index":
-                    if len(cols) >= 2:
+                    if len(cols) >= 4:
                         sensor_name = cols[0].text.strip()
-                        current_level = cols[1].text.strip()
-                        normal_level = "N/A"
+                        obs_time = cols[1].text.strip()
+                        current_level = cols[2].text.strip()
+                        normal_level = cols[3].text.strip()
                         description = "N/A"
-                        location = "N/A"
 
                 elif category == "earthquake_sensors":
-                    if len(cols) >= 2:
+                    if len(cols) >= 3:
                         sensor_name = cols[0].text.strip()
-                        current_level = cols[1].text.strip()
+                        obs_time = cols[1].text.strip()
+                        current_level = cols[2].text.strip()
                         normal_level = "N/A"
                         description = "N/A"
-                        location = "N/A"
 
-                # Append to sensor_data list
+                # Append sensor data
                 sensor_data.append({
+                    "CATEGORY": category,
                     "SENSOR NAME": sensor_name,
-                    "OBS TIME": location,
+                    "OBS TIME": obs_time,
                     "NORMAL LEVEL": normal_level,
                     "CURRENT": current_level,
-                    "DESCRIPTION": description,
-                    "CATEGORY": category
+                    "DESCRIPTION": description
                 })
 
         if not sensor_data:
@@ -234,34 +234,27 @@ def save_csv(sensor_data):
 def convert_csv_to_json():
     df = pd.read_csv(CSV_FILE_PATH)
 
-    # Hardcoded schema rules per category
+    # Hardcoded schema per category for JSON
     category_schemas = {
         "rain_gauge": ["SENSOR NAME", "CURRENT"],
-        "flood_sensors": ["SENSOR NAME", "NORMAL LEVEL", "CURRENT", "DESCRIPTION"],
+        "flood_sensors": ["SENSOR NAME", "NORMAL LEVEL", "CURRENT"],
         "street_flood_sensors": ["SENSOR NAME", "NORMAL LEVEL", "CURRENT", "DESCRIPTION"],
         "flood_risk_index": ["SENSOR NAME", "CURRENT"],
         "earthquake_sensors": ["SENSOR NAME", "CURRENT"],
     }
 
-    # Initialize JSON structure
     categorized_data = {category: [] for category in category_schemas}
-
-    # Prepare single CSV with Category column
-    all_fields = sorted(set(sum(category_schemas.values(), [])))
-    csv_columns = ["Category"] + all_fields
     csv_rows = []
+    csv_columns = ["Category"] + sorted(set(sum(category_schemas.values(), [])))
 
-    # Loop through each category
+    # Loop through categories
     for category in category_schemas:
-        sensors_in_category = df[df["CATEGORY"] == category]
-
-        for _, row in sensors_in_category.iterrows():
-            # Build JSON entry
+        sensors = df[df["CATEGORY"] == category]
+        for _, row in sensors.iterrows():
             sensor_entry = {field: row[field] if field in row else "N/A"
                             for field in category_schemas[category]}
             categorized_data[category].append(sensor_entry)
 
-            # Build CSV entry
             csv_entry = {col: "" for col in csv_columns}
             csv_entry["Category"] = category
             for field in category_schemas[category]:
@@ -273,7 +266,7 @@ def convert_csv_to_json():
         json.dump(categorized_data, f, indent=4)
     print("✅ JSON file saved with strict category-based schema.")
 
-    # Save single CSV
+    # Save CSV
     df_csv = pd.DataFrame(csv_rows, columns=csv_columns)
     df_csv.to_csv(CSV_FILE_PATH, index=False)
     print("✅ Single CSV file saved with strict category-based schema.")
