@@ -187,14 +187,14 @@ def convert_csv_to_json():
     categorized_data = {category: [] for category in SENSOR_CATEGORIES}
 
     for _, row in df.iterrows():
-        sensor_name = row.get("SENSOR NAME", "").strip()
-        obs_time = row.get("OBS TIME", "N/A")
-        current_value = row.get("CURRENT", "N/A")
-        normal_value = row.get("NORMAL LEVEL", "N/A")
-        description = row.get("DESCRIPTION", "N/A")
+        sensor_name = str(row.get("SENSOR NAME", "")).strip()
+        obs_time = str(row.get("OBS TIME", "N/A")).strip()
+        current_value = str(row.get("CURRENT", "N/A")).strip()
+        normal_value = str(row.get("NORMAL LEVEL", "N/A")).strip()
+        description = str(row.get("DESCRIPTION", "N/A")).strip()
 
         # --- Category specific rules ---
-        # Rain Gauge
+        # Rain Gauge (includes Rain Gauge with Nowcast)
         if sensor_name in SENSOR_CATEGORIES["rain_gauge"]:
             categorized_data["rain_gauge"].append({
                 "SENSOR NAME": sensor_name,
@@ -225,6 +225,13 @@ def convert_csv_to_json():
                 "CURRENT": current_value
             })
 
+        # River Flow Sensors (NEW)
+        elif sensor_name in SENSOR_CATEGORIES["river_flow_sensors"]:
+            categorized_data["river_flow_sensors"].append({
+                "SENSOR NAME": sensor_name,
+                "CURRENT": current_value
+            })
+
         # Earthquake Sensors
         elif sensor_name in SENSOR_CATEGORIES["earthquake_sensors"]:
             categorized_data["earthquake_sensors"].append({
@@ -233,8 +240,8 @@ def convert_csv_to_json():
             })
 
     # --- Save JSON ---
-    with open(SENSOR_DATA_FILE, "w") as f:
-        json.dump(categorized_data, f, indent=4)
+    with open(SENSOR_DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(categorized_data, f, indent=4, ensure_ascii=False)
 
     print("✅ JSON data structured correctly with hardcoded formats.")
 
@@ -247,7 +254,7 @@ def convert_csv_to_json():
             csv_rows.append(row)
 
     csv_df = pd.DataFrame(csv_rows)
-    csv_df.to_csv(CSV_FILE_PATH, index=False)
+    csv_df.to_csv(CSV_FILE_PATH, index=False, encoding="utf-8")
     print("✅ CSV file saved with category-based arrangement.")
 
 @app.get("/api/sensor-data")
