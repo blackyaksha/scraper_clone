@@ -55,8 +55,7 @@ SENSOR_CATEGORIES = {
         "Jose P Laurel Senior High School", "Pinyahan Multipurose Hall", "Sikatuna Brgy Hall",
         "Kalusugan Brgy Hall", "Laging Handa Barangay Hall", "Amoranto Sport Complex", "Maligaya High School",
         "San Agustin Brgy Hall", "Jose Maria Panganiban Senior High School", "North Fairview Elementary School",
-        "Sauyo Elementary School", "New Era Brgy Hall", "Ismael Mathay Senior High School", "Brgy Fairview (REC)",
-        "Brgy Baesa Hall", "Brgy N.S Amoranto Hall", "Brgy Valencia Hall"
+        "Sauyo Elementary School", "New Era Brgy Hall", "Ismael Mathay Senior High School"
     ],
     "flood_sensors": [
         "North Fairview", "Batasan-San Mateo", "Bahay Toro", "Sta Cruz", "San Bartolome"
@@ -70,9 +69,6 @@ SENSOR_CATEGORIES = {
         "N.S. Amoranto Street", "New Greenland", "Kalantiaw Street", "F. Calderon Street",
         "Christine Street", "Ramon Magsaysay Brgy Hall", "Phil-Am", "Holy Spirit",
         "Libis", "South Triangle", "Nagkaisang Nayon", "Tandang Sora", "Talipapa"
-    ],
-    "river_flow_sensors": [
-        "Kaliraya Bridge", "Culiat Bridge", "Tullahan Bridge II"
     ],
     "earthquake_sensors": ["QCDRRMO", "QCDRRMO REC"]
 }
