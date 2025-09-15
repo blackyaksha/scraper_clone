@@ -70,6 +70,9 @@ SENSOR_CATEGORIES = {
         "Christine Street", "Ramon Magsaysay Brgy Hall", "Phil-Am", "Holy Spirit",
         "Libis", "South Triangle", "Nagkaisang Nayon", "Tandang Sora", "Talipapa"
     ],
+    "river_flow_sensors": [
+        "Kaliraya Bridge", "Culiat Bridge", "Tullahan Bridge II"
+    ],
     "earthquake_sensors": ["QCDRRMO", "QCDRRMO REC"]
 }
 
@@ -206,8 +209,9 @@ def convert_csv_to_json():
         if sensor_name in SENSOR_CATEGORIES[category]:
             categorized_data[category].append(sensor_entry)
 
+    # Handle other categories like rain_gauge, flood_sensors (existing code)
     for category, sensors in SENSOR_CATEGORIES.items():
-        if category not in ["street_flood_sensors", "flood_risk_index"]:
+        if category not in ["street_flood_sensors", "flood_risk_index", "river_flow_sensors"]:
             for sensor_name in sensors:
                 matching_sensor = df[df["SENSOR NAME"].str.casefold() == sensor_name.casefold()]
                 if not matching_sensor.empty:
@@ -232,10 +236,24 @@ def convert_csv_to_json():
                         sensor_entry["DESCRIPTION"] = "N/A"
                     categorized_data[category].append(sensor_entry)
 
+    # 👇 NEW: Populate river_flow_sensors with SENSOR NAME + CURRENT only
+    for sensor_name in SENSOR_CATEGORIES["river_flow_sensors"]:
+        matching_sensor = df[df["SENSOR NAME"].str.casefold() == sensor_name.casefold()]
+        if not matching_sensor.empty:
+            current_value = matching_sensor.iloc[0]["CURRENT"]
+            categorized_data["river_flow_sensors"].append({
+                "SENSOR NAME": sensor_name,
+                "CURRENT": current_value
+            })
+        else:
+            categorized_data["river_flow_sensors"].append({
+                "SENSOR NAME": sensor_name,
+                "CURRENT": "0.0"  # default if not found
+            })
+
     with open(SENSOR_DATA_FILE, "w") as f:
         json.dump(categorized_data, f, indent=4)
-    print("✅ JSON data structured correctly with Street Flood Sensor Check.")
-
+    print("✅ JSON data structured correctly with Street Flood Sensor Check and River Flow Sensors.")
 
 @app.get("/api/sensor-data")
 async def get_sensor_data():
