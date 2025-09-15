@@ -43,7 +43,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-# Hardcoded category definitions
 SENSOR_CATEGORIES = {
     "rain_gauge": [
         "QCPU", "Masambong", "Batasan Hills", "Ugong Norte", "Ramon Magsaysay HS",
@@ -74,26 +73,31 @@ SENSOR_CATEGORIES = {
     "earthquake_sensors": ["QCDRRMO", "QCDRRMO REC"]
 }
 
-# Schema rules for each category
-CATEGORY_SCHEMAS = {
-    "rain_gauge": ["SENSOR NAME", "CURRENT"],
-    "flood_sensors": ["SENSOR NAME", "NORMAL LEVEL", "CURRENT", "DESCRIPTION"],
-    "street_flood_sensors": ["SENSOR NAME", "NORMAL LEVEL", "CURRENT", "DESCRIPTION"],
-    "flood_risk_index": ["SENSOR NAME", "CURRENT"],
-    "earthquake_sensors": ["SENSOR NAME", "CURRENT"],
-}
-
 
 def setup_chrome_driver():
     """Setup Chrome WebDriver with proper options and error handling"""
     try:
         chrome_options = Options()
         chrome_options.binary_location = "/usr/bin/chromium"
-        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--headless=new")  # Use new headless mode
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-software-rasterizer")
+        chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+        chrome_options.add_argument("--disable-features=IsolateOrigins,site-per-process")
+        chrome_options.add_argument("--disable-features=NetworkService,NetworkServiceInProcess,NetworkServiceInProcess2")
+        chrome_options.add_argument("--disable-gpu-sandbox")
+        chrome_options.add_argument("--disable-accelerated-2d-canvas")
+        chrome_options.add_argument("--disable-accelerated-jpeg-decoding")
+        chrome_options.add_argument("--disable-accelerated-mjpeg-decode")
+        chrome_options.add_argument("--disable-accelerated-video-decode")
+        chrome_options.add_argument("--disable-accelerated-video-encode")
+        chrome_options.add_argument("--disable-webgl")
+        chrome_options.add_argument("--disable-webgl2")
+        chrome_options.add_argument("--disable-3d-apis")
 
         service = Service("/usr/bin/chromedriver")
         driver = webdriver.Chrome(service=service, options=chrome_options)
@@ -134,42 +138,31 @@ def scrape_sensor_data():
         if not wait_for_page_load(driver, url):
             raise TimeoutError("Failed to load page after multiple attempts")
 
-        # Prepare category storage
-        categorized_data = {category: [] for category in SENSOR_CATEGORIES}
-
+        sensor_data = []
         rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
         for row in rows:
             cols = row.find_elements(By.TAG_NAME, "td")
             if len(cols) >= 5:
                 sensor_name = cols[0].text.strip()
                 location = cols[1].text.strip()
-                normal_level = cols[2].text.strip()
                 current_level = cols[3].text.strip()
+                normal_level = cols[2].text.strip()
                 description = cols[4].text.strip() if len(cols) > 4 else "N/A"
+                sensor_data.append({
+                    "SENSOR NAME": sensor_name,
+                    "OBS TIME": location,
+                    "NORMAL LEVEL": normal_level,
+                    "CURRENT": current_level,
+                    "DESCRIPTION": description
+                })
 
-                # Put row into all categories it belongs to
-                for category, sensors in SENSOR_CATEGORIES.items():
-                    if any(sensor_name.casefold() == s.casefold() for s in sensors):
-                        entry = {}
-                        for field in CATEGORY_SCHEMAS[category]:
-                            if field == "SENSOR NAME":
-                                entry[field] = sensor_name
-                            elif field == "NORMAL LEVEL":
-                                entry[field] = normal_level
-                            elif field == "CURRENT":
-                                entry[field] = current_level
-                            elif field == "DESCRIPTION":
-                                entry[field] = description
-                            else:
-                                entry[field] = "N/A"
+        if not sensor_data:
+            raise ValueError("No sensor data extracted. Check website structure.")
 
-                        categorized_data[category].append(entry)
-
-        if all(len(v) == 0 for v in categorized_data.values()):
-            raise ValueError("No categorized sensor data extracted. Check website structure.")
-
-        logger.info("✅ Successfully scraped and categorized sensor records")
-        save_categorized_data(categorized_data)
+        logger.info(f"✅ Successfully scraped {len(sensor_data)} sensor records")
+        save_csv(sensor_data)
+        convert_csv_to_json()
+        logger.info("✅ Sensor data updated successfully")
 
     except Exception as e:
         logger.error(f"❌ Scraping Failed: {str(e)}")
@@ -182,24 +175,68 @@ def scrape_sensor_data():
                 logger.error(f"Error closing WebDriver: {str(e)}")
 
 
-def save_categorized_data(categorized_data):
+def save_csv(sensor_data):
+    df = pd.DataFrame(sensor_data)
+    df.to_csv(CSV_FILE_PATH, index=False)
+    print("✅ CSV file saved successfully with all sensor data.")
+
+
+def convert_csv_to_json():
+    df = pd.read_csv(CSV_FILE_PATH)
+
+    # Hardcoded schema rules (OBS TIME dropped where not needed)
+    category_schemas = {
+        "rain_gauge": ["SENSOR NAME", "CURRENT"],  
+        "flood_sensors": ["SENSOR NAME", "NORMAL LEVEL", "CURRENT", "DESCRIPTION"],
+        "street_flood_sensors": ["SENSOR NAME", "NORMAL LEVEL", "CURRENT", "DESCRIPTION"],  
+        "flood_risk_index": ["SENSOR NAME", "CURRENT"],  
+        "earthquake_sensors": ["SENSOR NAME", "CURRENT"],  
+    }
+
+    categorized_data = {category: [] for category in SENSOR_CATEGORIES}
+    csv_rows = []
+
+    # Unified CSV fields
+    all_fields = sorted(set(sum(category_schemas.values(), [])))
+    csv_columns = ["Category"] + all_fields
+
+    for category, sensors in SENSOR_CATEGORIES.items():
+        for sensor_name in sensors:
+            matching_sensor = df[df["SENSOR NAME"].str.casefold() == sensor_name.casefold()]
+
+            if not matching_sensor.empty:
+                row = matching_sensor.iloc[0]
+                sensor_entry = {
+                    field: row[field] if field in row else "N/A"
+                    for field in category_schemas[category]
+                }
+            else:
+                # Not found → defaults
+                sensor_entry = {field: "N/A" for field in category_schemas[category]}
+                sensor_entry["SENSOR NAME"] = sensor_name
+                if category == "street_flood_sensors":
+                    sensor_entry["CURRENT"] = "0.0m"
+                else:
+                    sensor_entry["CURRENT"] = 0.0
+
+            categorized_data[category].append(sensor_entry)
+
+            # Build CSV row
+            csv_entry = {col: "" for col in csv_columns}
+            csv_entry["Category"] = category
+            for field in category_schemas[category]:
+                csv_entry[field] = sensor_entry[field]
+            csv_rows.append(csv_entry)
+
     # Save JSON
     with open(SENSOR_DATA_FILE, "w") as f:
         json.dump(categorized_data, f, indent=4)
-    print("✅ JSON file saved with category-aware data.")
+    print("✅ JSON file saved with per-category entries (same name treated separately).")
 
-    # Flatten into single CSV
-    csv_rows = []
-    for category, sensors in categorized_data.items():
-        for sensor in sensors:
-            row = {"Category": category}
-            row.update(sensor)
-            csv_rows.append(row)
-
-    df_csv = pd.DataFrame(csv_rows)
+    # Save CSV
+    df_csv = pd.DataFrame(csv_rows, columns=csv_columns)
     df_csv.to_csv(CSV_FILE_PATH, index=False)
-    print("✅ CSV file saved with category-aware data.")
-
+    print("✅ CSV file saved with per-category entries (same name treated separately).")
 
 @app.get("/api/sensor-data")
 async def get_sensor_data():
