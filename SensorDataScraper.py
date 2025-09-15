@@ -136,22 +136,22 @@ def scrape_sensor_data():
         if not wait_for_page_load(driver, url):
             raise TimeoutError("Failed to load page after multiple attempts")
 
-        sensor_data = []
+        # Extract table headers dynamically
+        headers = [th.text.strip().upper() for th in driver.find_elements(By.CSS_SELECTOR, "table thead th")]
+
         rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+        sensor_data = []
+
         for row in rows:
             cols = row.find_elements(By.TAG_NAME, "td")
-            if len(cols) >= 5:
-                sensor_name = cols[0].text.strip()
-                location = cols[1].text.strip()
-                current_level = cols[3].text.strip()
-                normal_level = cols[2].text.strip()
-                description = cols[4].text.strip() if len(cols) > 4 else "N/A"
+            if len(cols) >= len(headers):
+                row_data = {headers[i]: cols[i].text.strip() for i in range(len(headers))}
                 sensor_data.append({
-                    "SENSOR NAME": sensor_name,
-                    "OBS TIME": location,
-                    "NORMAL LEVEL": normal_level,
-                    "CURRENT": current_level,
-                    "DESCRIPTION": description
+                    "SENSOR NAME": row_data.get("SENSOR NAME", ""),
+                    "OBS TIME": row_data.get("OBS TIME", ""),
+                    "NORMAL LEVEL": row_data.get("NORMAL LEVEL", ""),
+                    "CURRENT": row_data.get("CURRENT", ""),
+                    "DESCRIPTION": row_data.get("DESCRIPTION", "N/A")
                 })
 
         if not sensor_data:
@@ -159,8 +159,9 @@ def scrape_sensor_data():
 
         logger.info(f"✅ Successfully scraped {len(sensor_data)} sensor records")
         save_csv(sensor_data)
-        convert_csv_to_json()
+        convert_csv_to_json(sensor_data)
         logger.info("✅ Sensor data updated successfully")
+
     except Exception as e:
         logger.error(f"❌ Scraping Failed: {str(e)}")
         raise
@@ -176,17 +177,18 @@ def save_csv(sensor_data):
     df.to_csv(CSV_FILE_PATH, index=False)
     print("✅ CSV file saved successfully with all sensor data.")
 
-def convert_csv_to_json():
-    df = pd.read_csv(CSV_FILE_PATH)
+def convert_csv_to_json(sensor_data: List[Dict[str, Any]]):
+    """
+    Converts raw sensor_data to categorized JSON and saves both JSON and CSV with categories
+    """
     categorized_data = {category: [] for category in SENSOR_CATEGORIES}
 
-    for _, row in df.iterrows():
+    for row in sensor_data:
         sensor_name = row.get("SENSOR NAME", "").strip()
         current_value = row.get("CURRENT", "N/A")
         normal_value = row.get("NORMAL LEVEL", "N/A")
         description = row.get("DESCRIPTION", "N/A")
 
-        # Categorize properly using SENSOR_CATEGORIES
         if sensor_name in SENSOR_CATEGORIES["rain_gauge"]:
             categorized_data["rain_gauge"].append({
                 "SENSOR NAME": sensor_name,
