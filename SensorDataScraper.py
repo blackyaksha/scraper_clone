@@ -37,10 +37,10 @@ app = FastAPI(title="Flood Data Scraper API")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Allow all origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 SENSOR_CATEGORIES = {
@@ -70,8 +70,7 @@ SENSOR_CATEGORIES = {
         "Christine Street", "Ramon Magsaysay Brgy Hall", "Phil-Am", "Holy Spirit",
         "Libis", "South Triangle", "Nagkaisang Nayon", "Tandang Sora", "Talipapa"
     ],
-    "earthquake_sensors": ["QCDRRMO", "QCDRRMO REC"],
-    "river_flow_sensors": ["Kaliraya Bridge", "Culiat Bridge", "Tullahan Bridge II"]  # ✅ New Category
+    "earthquake_sensors": ["QCDRRMO", "QCDRRMO REC"]
 }
 
 
@@ -80,7 +79,7 @@ def setup_chrome_driver():
     try:
         chrome_options = Options()
         chrome_options.binary_location = "/usr/bin/chromium"
-        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--headless=new")  # Use new headless mode
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
@@ -139,41 +138,30 @@ def scrape_sensor_data():
         if not wait_for_page_load(driver, url):
             raise TimeoutError("Failed to load page after multiple attempts")
 
-        all_sensor_data = []
-        river_flow_data = []
+        sensor_data = []
+        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+        for row in rows:
+            cols = row.find_elements(By.TAG_NAME, "td")
+            if len(cols) >= 5:
+                sensor_name = cols[0].text.strip()
+                location = cols[1].text.strip()
+                current_level = cols[3].text.strip()
+                normal_level = cols[2].text.strip()
+                description = cols[4].text.strip() if len(cols) > 4 else "N/A"
+                sensor_data.append({
+                    "SENSOR NAME": sensor_name,
+                    "OBS TIME": location,
+                    "NORMAL LEVEL": normal_level,
+                    "CURRENT": current_level,
+                    "DESCRIPTION": description
+                })
 
-        tables = driver.find_elements(By.CSS_SELECTOR, "table")
-        for table in tables:
-            rows = table.find_elements(By.CSS_SELECTOR, "tbody tr")
-            for row in rows:
-                cols = row.find_elements(By.TAG_NAME, "td")
-                if len(cols) >= 3:
-                    sensor_name = cols[0].text.strip()
-                    current_level = cols[1].text.strip()
-                    normal_level = cols[2].text.strip()
-
-                    if "cms" in current_level.lower() or "m³/s" in current_level.lower():
-                        river_flow_data.append({
-                            "SENSOR NAME": sensor_name,
-                            "CURRENT": current_level
-                        })
-                    elif len(cols) >= 5:
-                        description = cols[4].text.strip()
-                        all_sensor_data.append({
-                            "SENSOR NAME": sensor_name,
-                            "OBS TIME": cols[1].text.strip(),
-                            "NORMAL LEVEL": normal_level,
-                            "CURRENT": cols[3].text.strip(),
-                            "DESCRIPTION": description
-                        })
-
-        if not all_sensor_data and not river_flow_data:
+        if not sensor_data:
             raise ValueError("No sensor data extracted. Check website structure.")
 
-        logger.info(f"✅ Scraped {len(all_sensor_data)} flood sensors & {len(river_flow_data)} river flow sensors")
-
-        save_csv(all_sensor_data, river_flow_data)
-        convert_csv_to_json(river_flow_data)
+        logger.info(f"✅ Successfully scraped {len(sensor_data)} sensor records")
+        save_csv(sensor_data)
+        convert_csv_to_json()
         logger.info("✅ Sensor data updated successfully")
 
     except Exception as e:
@@ -187,21 +175,14 @@ def scrape_sensor_data():
                 logger.error(f"Error closing WebDriver: {str(e)}")
 
 
-def save_csv(sensor_data, river_flow_data):
+def save_csv(sensor_data):
     df = pd.DataFrame(sensor_data)
     df.to_csv(CSV_FILE_PATH, index=False)
-
-    if river_flow_data:
-        with open(CSV_FILE_PATH, "a") as f:
-            f.write("\n# River Flow Sensors (Below Flood Risk Index)\n")
-        df_river = pd.DataFrame(river_flow_data)
-        df_river.to_csv(CSV_FILE_PATH, index=False, mode='a')
-
     print("✅ CSV file saved successfully with all sensor data.")
 
 
-def convert_csv_to_json(river_flow_data):
-    df = pd.read_csv(CSV_FILE_PATH, comment="#")
+def convert_csv_to_json():
+    df = pd.read_csv(CSV_FILE_PATH)
     categorized_data = {category: [] for category in SENSOR_CATEGORIES}
 
     for _, row in df.iterrows():
@@ -210,7 +191,10 @@ def convert_csv_to_json(river_flow_data):
         normal_value = row["NORMAL LEVEL"] if "NORMAL LEVEL" in df.columns else "N/A"
         description = row["DESCRIPTION"] if "DESCRIPTION" in df.columns else "N/A"
 
-        sensor_entry = {"SENSOR NAME": sensor_name, "CURRENT": current_value}
+        sensor_entry = {
+            "SENSOR NAME": sensor_name,
+            "CURRENT": current_value,
+        }
 
         if "m" in str(current_value):
             category = "street_flood_sensors"
@@ -223,37 +207,34 @@ def convert_csv_to_json(river_flow_data):
             categorized_data[category].append(sensor_entry)
 
     for category, sensors in SENSOR_CATEGORIES.items():
-        if category not in ["street_flood_sensors", "flood_risk_index", "river_flow_sensors"]:
+        if category not in ["street_flood_sensors", "flood_risk_index"]:
             for sensor_name in sensors:
                 matching_sensor = df[df["SENSOR NAME"].str.casefold() == sensor_name.casefold()]
                 if not matching_sensor.empty:
                     normal_value = matching_sensor.iloc[0]["NORMAL LEVEL"] if "NORMAL LEVEL" in df.columns else "N/A"
                     current_value = matching_sensor.iloc[0]["CURRENT"]
                     description = matching_sensor.iloc[0]["DESCRIPTION"] if "DESCRIPTION" in df.columns else "N/A"
-                    sensor_entry = {"SENSOR NAME": sensor_name, "CURRENT": current_value}
+                    sensor_entry = {
+                        "SENSOR NAME": sensor_name,
+                        "CURRENT": current_value,
+                    }
                     if category in ["flood_sensors"]:
                         sensor_entry["NORMAL LEVEL"] = normal_value
                         sensor_entry["DESCRIPTION"] = description
                     categorized_data[category].append(sensor_entry)
                 else:
-                    sensor_entry = {"SENSOR NAME": sensor_name, "CURRENT": "0.0m" if category == "street_flood_sensors" else 0.0}
+                    sensor_entry = {
+                        "SENSOR NAME": sensor_name,
+                        "CURRENT": "0.0m" if category == "street_flood_sensors" else 0.0,
+                    }
                     if category in ["flood_sensors"]:
                         sensor_entry["NORMAL LEVEL"] = "N/A"
                         sensor_entry["DESCRIPTION"] = "N/A"
                     categorized_data[category].append(sensor_entry)
 
-    # ✅ Build ordered dict so river_flow_sensors always comes after flood_risk_index
-    ordered_data = {}
-    for key in SENSOR_CATEGORIES.keys():
-        if key == "river_flow_sensors":
-            continue  # skip, we'll insert it after flood_risk_index
-        ordered_data[key] = categorized_data.get(key, [])
-        if key == "flood_risk_index":
-            ordered_data["river_flow_sensors"] = river_flow_data
-
     with open(SENSOR_DATA_FILE, "w") as f:
-        json.dump(ordered_data, f, indent=4)
-    print("✅ JSON data structured correctly with River Flow Sensor Check.")
+        json.dump(categorized_data, f, indent=4)
+    print("✅ JSON data structured correctly with Street Flood Sensor Check.")
 
 
 @app.get("/api/sensor-data")
@@ -280,7 +261,7 @@ try:
     if not os.path.exists(SENSOR_DATA_FILE):
         print("⚡ No runtime sensor_data.json found, running initial scrape...")
         try:
-            scrape_sensor_data()
+            scrape_sensor_data()  # try live scrape
         except Exception as scrape_error:
             logger.error(f"❌ Initial scrape failed: {scrape_error}")
 
@@ -289,6 +270,7 @@ try:
                 shutil.copy(DEFAULT_SENSOR_DATA_FILE, SENSOR_DATA_FILE)
                 print("📦 Copied fallback sensor_data.json from repo to /tmp.")
             else:
+                # Create empty JSON so API won’t crash
                 with open(SENSOR_DATA_FILE, "w") as f:
                     json.dump({key: [] for key in SENSOR_CATEGORIES.keys()}, f, indent=4)
                 print("⚠️ No repo fallback found. Created empty /tmp/sensor_data.json.")
