@@ -17,30 +17,22 @@ import os
 # Set all internal file reads/writes to be relative to /tmp
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Runtime storage (always updated here)
 SENSOR_DATA_FILE = os.path.join("/tmp", "sensor_data.json")
 CSV_FILE_PATH = os.path.join("/tmp", "sensor_data.csv")
-
-# Fallback copy from your repo (read-only)
 DEFAULT_SENSOR_DATA_FILE = os.path.join(BASE_DIR, "sensor_data.json")
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+# Logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-# FastAPI Web App
+# FastAPI app
 app = FastAPI(title="Flood Data Scraper API")
-
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Sensor categories
@@ -74,12 +66,12 @@ SENSOR_CATEGORIES = {
     "earthquake_sensors": ["QCDRRMO", "QCDRRMO REC"]
 }
 
+# ------------------- Chrome WebDriver Setup -------------------
 def setup_chrome_driver():
-    """Setup Chrome WebDriver with proper options and error handling"""
     try:
         chrome_options = Options()
         chrome_options.binary_location = "/usr/bin/chromium"
-        chrome_options.add_argument("--headless=new")  # Use new headless mode
+        chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
@@ -109,7 +101,6 @@ def setup_chrome_driver():
         raise
 
 def wait_for_page_load(driver, url, max_retries=3):
-    """Wait for page to load with retry logic"""
     for attempt in range(max_retries):
         try:
             logger.info(f"Attempt {attempt + 1} to load page: {url}")
@@ -125,6 +116,7 @@ def wait_for_page_load(driver, url, max_retries=3):
             time.sleep(5)
     return False
 
+# ------------------- Scraper Function -------------------
 def scrape_sensor_data():
     driver = None
     try:
@@ -136,22 +128,23 @@ def scrape_sensor_data():
         if not wait_for_page_load(driver, url):
             raise TimeoutError("Failed to load page after multiple attempts")
 
+        # Dynamic headers
+        headers = [th.text.strip().upper() for th in driver.find_elements(By.CSS_SELECTOR, "table thead th")]
+        logger.info(f"Detected table headers: {headers}")
+
         sensor_data = []
         rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+
         for row in rows:
             cols = row.find_elements(By.TAG_NAME, "td")
-            if len(cols) >= 5:
-                sensor_name = cols[0].text.strip()
-                location = cols[1].text.strip()
-                current_level = cols[3].text.strip()
-                normal_level = cols[2].text.strip()
-                description = cols[4].text.strip() if len(cols) > 4 else "N/A"
+            if len(cols) >= len(headers):
+                row_data = {headers[i]: cols[i].text.strip() for i in range(len(headers))}
                 sensor_data.append({
-                    "SENSOR NAME": sensor_name,
-                    "OBS TIME": location,
-                    "NORMAL LEVEL": normal_level,
-                    "CURRENT": current_level,
-                    "DESCRIPTION": description
+                    "SENSOR NAME": row_data.get("SENSOR NAME", ""),
+                    "OBS TIME": row_data.get("OBS TIME", ""),
+                    "NORMAL LEVEL": row_data.get("NORMAL LEVEL", ""),
+                    "CURRENT": row_data.get("CURRENT", ""),
+                    "DESCRIPTION": row_data.get("DESCRIPTION", "N/A")
                 })
 
         if not sensor_data:
@@ -159,8 +152,9 @@ def scrape_sensor_data():
 
         logger.info(f"✅ Successfully scraped {len(sensor_data)} sensor records")
         save_csv(sensor_data)
-        convert_csv_to_json()
+        convert_csv_to_json(sensor_data)
         logger.info("✅ Sensor data updated successfully")
+
     except Exception as e:
         logger.error(f"❌ Scraping Failed: {str(e)}")
         raise
@@ -171,26 +165,25 @@ def scrape_sensor_data():
             except Exception as e:
                 logger.error(f"Error closing WebDriver: {str(e)}")
 
+# ------------------- CSV / JSON Save -------------------
 def save_csv(sensor_data):
     df = pd.DataFrame(sensor_data)
     df.to_csv(CSV_FILE_PATH, index=False)
     print("✅ CSV file saved successfully with all sensor data.")
 
-def convert_csv_to_json():
-    df = pd.read_csv(CSV_FILE_PATH)
+def convert_csv_to_json(sensor_data: List[Dict[str, Any]]):
     categorized_data = {category: [] for category in SENSOR_CATEGORIES}
-    
-    for _, row in df.iterrows():
+
+    for row in sensor_data:
         sensor_name = row.get("SENSOR NAME", "").strip()
         current_value = row.get("CURRENT", "N/A")
         normal_value = row.get("NORMAL LEVEL", "N/A")
         description = row.get("DESCRIPTION", "N/A")
 
-        # Categorize properly using SENSOR_CATEGORIES
         if sensor_name in SENSOR_CATEGORIES["rain_gauge"]:
             categorized_data["rain_gauge"].append({
                 "SENSOR NAME": sensor_name,
-                "CURRENT": current_value  # Fixed: using current_value instead of normal_value
+                "CURRENT": current_value
             })
         elif sensor_name in SENSOR_CATEGORIES["flood_sensors"]:
             categorized_data["flood_sensors"].append({
@@ -222,18 +215,19 @@ def convert_csv_to_json():
         json.dump(categorized_data, f, indent=4)
     print("✅ JSON data structured correctly with hardcoded formats.")
 
-    # Save CSV with category-based arrangement
+    # Save CSV with category column
     csv_rows = []
     for category, sensors in categorized_data.items():
         for s in sensors:
             row = {"CATEGORY": category}
             row.update(s)
             csv_rows.append(row)
-    
+
     csv_df = pd.DataFrame(csv_rows)
     csv_df.to_csv(CSV_FILE_PATH, index=False)
     print("✅ CSV file saved with category-based arrangement.")
 
+# ------------------- API Endpoint -------------------
 @app.get("/api/sensor-data")
 async def get_sensor_data():
     if os.path.exists(SENSOR_DATA_FILE):
@@ -241,6 +235,7 @@ async def get_sensor_data():
             return json.load(f)
     raise HTTPException(status_code=404, detail="Sensor data not available")
 
+# ------------------- Background Scraper -------------------
 def start_auto_scraper():
     while True:
         print("🔄 Running data scraper...")
@@ -251,7 +246,7 @@ def start_auto_scraper():
         print("⏳ Waiting 60 seconds before the next scrape...")
         time.sleep(60)
 
-# Ensure sensor_data.json exists on startup
+# ------------------- Startup -------------------
 try:
     if not os.path.exists(SENSOR_DATA_FILE):
         print("⚡ No runtime sensor_data.json found, running initial scrape...")
@@ -270,7 +265,7 @@ try:
 except Exception as e:
     print(f"Error in startup data init: {e}")
 
-# Start background scraper thread
+# Start scraper thread
 scraper_thread = threading.Thread(target=start_auto_scraper, daemon=True)
 scraper_thread.start()
 
