@@ -43,20 +43,22 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+# Sensor categories
 SENSOR_CATEGORIES = {
     "rain_gauge": [
         "QCPU", "Masambong", "Batasan Hills", "Ugong Norte", "Ramon Magsaysay HS",
         "UP Village", "Dona Imelda", "Kaligayahan", "Emilio Jacinto Sr HS", "Payatas ES",
-        "Ramon Magsaysay Brgy Hall", "Phil-Am", "Holy Spirit", "Libis",
-        "South Triangle", "Nagkaisang Nayon", "Tandang Sora", "Talipapa",
-        "Balingasa High School", "Toro Hills Elementary School", "Quezon City University San Francisco Campus", 
-        "Maharlika Brgy Hall", "Bagong Silangan Evacuation Center", "Dona Juana Elementary School",
-        "Quirino High School", "Old Balara Elementary School", "Pansol Kaingin 1 Brgy Satellite Office",
-        "Jose P Laurel Senior High School", "Pinyahan Multipurose Hall", "Sikatuna Brgy Hall",
-        "Kalusugan Brgy Hall", "Laging Handa Barangay Hall", "Amoranto Sport Complex", "Maligaya High School",
-        "San Agustin Brgy Hall", "Jose Maria Panganiban Senior High School", "North Fairview Elementary School",
-        "Sauyo Elementary School", "New Era Brgy Hall", "Ismael Mathay Senior High School", "Brgy Fairview (REC)",
-        "Brgy Baesa Hall", "Brgy N.S Amoranto Hall", "Brgy Valencia Hall"
+        "Ramon Magsaysay Brgy Hall", "Phil-Am", "Holy Spirit", "Libis", "South Triangle",
+        "Nagkaisang Nayon", "Tandang Sora", "Talipapa", "Balingasa High School",
+        "Toro Hills Elementary School", "Quezon City University San Francisco Campus",
+        "Maharlika Brgy Hall", "Bagong Silangan Evacuation Center",
+        "Dona Juana Elementary School", "Quirino High School", "Old Balara Elementary School",
+        "Pansol Kaingin 1 Brgy Satellite Office", "Jose P Laurel Senior High School",
+        "Pinyahan Multipurose Hall", "Sikatuna Brgy Hall", "Kalusugan Brgy Hall",
+        "Laging Handa Barangay Hall", "Amoranto Sport Complex", "Maligaya High School",
+        "San Agustin Brgy Hall", "Jose Maria Panganiban Senior High School",
+        "North Fairview Elementary School", "Sauyo Elementary School", "New Era Brgy Hall",
+        "Ismael Mathay Senior High School"
     ],
     "flood_sensors": [
         "North Fairview", "Batasan-San Mateo", "Bahay Toro", "Sta Cruz", "San Bartolome"
@@ -70,9 +72,6 @@ SENSOR_CATEGORIES = {
         "N.S. Amoranto Street", "New Greenland", "Kalantiaw Street", "F. Calderon Street",
         "Christine Street", "Ramon Magsaysay Brgy Hall", "Phil-Am", "Holy Spirit",
         "Libis", "South Triangle", "Nagkaisang Nayon", "Tandang Sora", "Talipapa"
-    ],
-    "river_flow_sensors": [
-        "Kaliraya Bridge", "Culiat Bridge", "Tullahan Bridge II"
     ],
     "earthquake_sensors": ["QCDRRMO", "QCDRRMO REC"]
 }
@@ -144,6 +143,7 @@ def scrape_sensor_data():
 
         sensor_data = []
         rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+
         for row in rows:
             cols = row.find_elements(By.TAG_NAME, "td")
             if len(cols) >= 5:
@@ -152,6 +152,7 @@ def scrape_sensor_data():
                 current_level = cols[3].text.strip()
                 normal_level = cols[2].text.strip()
                 description = cols[4].text.strip() if len(cols) > 4 else "N/A"
+
                 sensor_data.append({
                     "SENSOR NAME": sensor_name,
                     "OBS TIME": location,
@@ -164,6 +165,7 @@ def scrape_sensor_data():
             raise ValueError("No sensor data extracted. Check website structure.")
 
         logger.info(f"✅ Successfully scraped {len(sensor_data)} sensor records")
+
         save_csv(sensor_data)
         convert_csv_to_json()
         logger.info("✅ Sensor data updated successfully")
@@ -191,13 +193,12 @@ def convert_csv_to_json():
     categorized_data = {category: [] for category in SENSOR_CATEGORIES}
 
     for _, row in df.iterrows():
-        sensor_name = str(row.get("SENSOR NAME", "")).strip()
+        sensor_name = row.get("SENSOR NAME", "").strip()
         obs_time = row.get("OBS TIME", "N/A")
         current_value = row.get("CURRENT", "N/A")
         normal_value = row.get("NORMAL LEVEL", "N/A")
         description = row.get("DESCRIPTION", "N/A")
 
-        # --- Category specific rules ---
         # Rain Gauge
         if sensor_name in SENSOR_CATEGORIES["rain_gauge"]:
             categorized_data["rain_gauge"].append({
@@ -222,19 +223,12 @@ def convert_csv_to_json():
                 "DESCRIPTION": description
             })
 
-        # Flood Risk Index (force NORMAL VALUE to exist to avoid rain_gauge overlap)
+        # Flood Risk Index
         elif sensor_name in SENSOR_CATEGORIES["flood_risk_index"]:
             categorized_data["flood_risk_index"].append({
                 "SENSOR NAME": sensor_name,
                 "CURRENT": current_value,
-                "NORMAL VALUE": normal_value  # ensures structure differs from rain_gauge
-            })
-
-        # River Flow Sensors
-        elif sensor_name in SENSOR_CATEGORIES.get("river_flow_sensors", []):
-            categorized_data["river_flow_sensors"].append({
-                "SENSOR NAME": sensor_name,
-                "CURRENT": current_value
+                "RISK INDEX": normal_value
             })
 
         # Earthquake Sensors
@@ -244,13 +238,12 @@ def convert_csv_to_json():
                 "CURRENT": current_value
             })
 
-    # --- Save JSON ---
+    # Save JSON
     with open(SENSOR_DATA_FILE, "w") as f:
         json.dump(categorized_data, f, indent=4)
-
     print("✅ JSON data structured correctly with hardcoded formats.")
 
-    # --- Save CSV with same structure ---
+    # Save CSV with category-based arrangement
     csv_rows = []
     for category, sensors in categorized_data.items():
         for s in sensors:
@@ -261,6 +254,7 @@ def convert_csv_to_json():
     csv_df = pd.DataFrame(csv_rows)
     csv_df.to_csv(CSV_FILE_PATH, index=False)
     print("✅ CSV file saved with category-based arrangement.")
+
 
 @app.get("/api/sensor-data")
 async def get_sensor_data():
@@ -281,28 +275,26 @@ def start_auto_scraper():
         time.sleep(60)
 
 
-# ✅ Ensure sensor_data.json exists on startup
+# Ensure sensor_data.json exists on startup
 try:
     if not os.path.exists(SENSOR_DATA_FILE):
         print("⚡ No runtime sensor_data.json found, running initial scrape...")
         try:
-            scrape_sensor_data()  # try live scrape
+            scrape_sensor_data()
         except Exception as scrape_error:
             logger.error(f"❌ Initial scrape failed: {scrape_error}")
-
             if os.path.exists(DEFAULT_SENSOR_DATA_FILE):
                 import shutil
                 shutil.copy(DEFAULT_SENSOR_DATA_FILE, SENSOR_DATA_FILE)
                 print("📦 Copied fallback sensor_data.json from repo to /tmp.")
             else:
-                # Create empty JSON so API won’t crash
                 with open(SENSOR_DATA_FILE, "w") as f:
                     json.dump({key: [] for key in SENSOR_CATEGORIES.keys()}, f, indent=4)
                 print("⚠️ No repo fallback found. Created empty /tmp/sensor_data.json.")
 except Exception as e:
     print(f"Error in startup data init: {e}")
 
-# ✅ Start background scraper thread
+# Start background scraper thread
 scraper_thread = threading.Thread(target=start_auto_scraper, daemon=True)
 scraper_thread.start()
 
