@@ -48,12 +48,18 @@ app.add_middleware(
 )
 
 SENSOR_CATEGORIES = {
-    "rain_gauge": [
+"rain_gauge": [
         "QCPU", "Masambong", "Batasan Hills", "Ugong Norte", "Ramon Magsaysay HS",
         "UP Village", "Dona Imelda", "Kaligayahan", "Emilio Jacinto Sr HS", "Payatas ES",
         "Ramon Magsaysay Brgy Hall", "Phil-Am", "Holy Spirit", "Libis",
         "South Triangle", "Nagkaisang Nayon", "Tandang Sora", "Talipapa",
-        "Brgy Fairview (REC)", "Brgy Baesa Hall", "Brgy N.S Amoranto Hall", "Brgy Valencia Hall"
+        "Balingasa High School", "Toro Hills Elementary School", "Quezon City University San Francisco Campus", 
+        "Maharlika Brgy Hall", "Bagong Silangan Evacuation Center", "Dona Juana Elementary School",
+        "Quirino High School", "Old Balara Elementary School", "Pansol Kaingin 1 Brgy Satellite Office",
+        "Jose P Laurel Senior High School", "Pinyahan Multipurose Hall", "Sikatuna Brgy Hall",
+        "Kalusugan Brgy Hall", "Laging Handa Barangay Hall", "Amoranto Sport Complex", "Maligaya High School",
+        "San Agustin Brgy Hall", "Jose Maria Panganiban Senior High School", "North Fairview Elementary School",
+        "Sauyo Elementary School", "New Era Brgy Hall", "Ismael Mathay Senior High School"
     ],
     "flood_sensors": [
         "North Fairview", "Batasan-San Mateo", "Bahay Toro", "Sta Cruz", "San Bartolome"
