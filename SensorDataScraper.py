@@ -228,10 +228,8 @@ def convert_csv_to_json():
                         "SENSOR NAME": sensor_name,
                         "CURRENT": current_value
                     }
-
-                categorized_data[category].append(sensor_entry)
             else:
-                # If missing in scraped data, still include with blanks/defaults
+                # If missing in scraped data, insert placeholders
                 if category == "rain_gauge":
                     sensor_entry = {"SENSOR NAME": sensor_name, "CURRENT": "N/A"}
                 elif category == "flood_sensors":
@@ -243,13 +241,13 @@ def convert_csv_to_json():
                 else:
                     sensor_entry = {"SENSOR NAME": sensor_name, "CURRENT": "N/A"}
 
-                categorized_data[category].append(sensor_entry)
+            categorized_data[category].append(sensor_entry)
 
     # Save JSON
     with open(SENSOR_DATA_FILE, "w") as f:
         json.dump(categorized_data, f, indent=4)
 
-    # Also save flattened CSV with categories
+    # Also save category-specific CSV
     flat_data = []
     for category, items in categorized_data.items():
         for item in items:
@@ -257,7 +255,28 @@ def convert_csv_to_json():
             entry.update(item)
             flat_data.append(entry)
 
-    pd.DataFrame(flat_data).to_csv(CSV_FILE_PATH, index=False)
+    # Normalize column order per category
+    def reorder_columns(df, category):
+        if category == "rain_gauge":
+            return df[["CATEGORY", "SENSOR NAME", "CURRENT"]]
+        elif category == "flood_sensors":
+            return df[["CATEGORY", "SENSOR NAME", "NORMAL LEVEL", "CURRENT"]]
+        elif category == "street_flood_sensors":
+            return df[["CATEGORY", "SENSOR NAME", "NORMAL LEVEL", "CURRENT", "DESCRIPTION"]]
+        elif category in ["flood_risk_index", "earthquake_sensors"]:
+            return df[["CATEGORY", "SENSOR NAME", "CURRENT"]]
+        return df
+
+    # Reorder columns for each category before merging
+    final_df_list = []
+    for category in SENSOR_CATEGORIES.keys():
+        cat_df = pd.DataFrame([d for d in flat_data if d["CATEGORY"] == category])
+        if not cat_df.empty:
+            cat_df = reorder_columns(cat_df, category)
+            final_df_list.append(cat_df)
+
+    final_df = pd.concat(final_df_list, ignore_index=True)
+    final_df.to_csv(CSV_FILE_PATH, index=False)
     print("✅ JSON and CSV structured correctly with hardcoded formats.")
 
 @app.get("/api/sensor-data", response_model=Dict[str, List[Dict[str, Any]]])
