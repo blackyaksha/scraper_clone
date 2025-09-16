@@ -138,94 +138,96 @@ def scrape_sensor_data():
         if not wait_for_page_load(driver, url):
             raise TimeoutError("Failed to load page after multiple attempts")
 
-            sensor_data = []
+        # ✅ Initialize after successful page load
+        sensor_data = []
 
-    # --- Rain Gauge Table (1st table) ---
-    rain_rows = driver.find_elements(By.XPATH, "(//table)[1]//tbody//tr")
-    for row in rain_rows:
-        cols = row.find_elements(By.TAG_NAME, "td")
-        if len(cols) >= 4:
-            sensor_data.append({
-                "CATEGORY": "rain_gauge",
-                "SENSOR NAME": cols[0].text.strip(),
-                "OBS TIME": cols[1].text.strip(),
-                "NORMAL LEVEL": cols[3].text.strip(),
-                "CURRENT": cols[2].text.strip()
-            })
+        # --- Rain Gauge Table (1st table) ---
+        rain_rows = driver.find_elements(By.XPATH, "(//table)[1]//tbody//tr")
+        for row in rain_rows:
+            cols = row.find_elements(By.TAG_NAME, "td")
+            if len(cols) >= 4:
+                sensor_data.append({
+                    "CATEGORY": "rain_gauge",
+                    "SENSOR NAME": cols[0].text.strip(),
+                    "OBS TIME": cols[1].text.strip(),
+                    "NORMAL LEVEL": cols[3].text.strip(),
+                    "CURRENT": cols[2].text.strip()
+                })
 
-    # --- Rain Gauge Nowcast Table (2nd table) ---
-    nowcast_rows = driver.find_elements(By.XPATH, "(//table)[2]//tbody//tr")
-    for row in nowcast_rows:
-        cols = row.find_elements(By.TAG_NAME, "td")
-        if len(cols) >= 2:
-            sensor_data.append({
-                "CATEGORY": "rain_gauge_nowcast",
-                "SENSOR NAME": cols[0].text.strip(),
-                "CURRENT": cols[1].text.strip()
-            })
+        # --- Rain Gauge Nowcast Table (2nd table) ---
+        nowcast_rows = driver.find_elements(By.XPATH, "(//table)[2]//tbody//tr")
+        for row in nowcast_rows:
+            cols = row.find_elements(By.TAG_NAME, "td")
+            if len(cols) >= 2:
+                sensor_data.append({
+                    "CATEGORY": "rain_gauge_nowcast",
+                    "SENSOR NAME": cols[0].text.strip(),
+                    "CURRENT": cols[1].text.strip()
+                })
 
-    # --- Flood Sensors Table (3rd table) ---
-    flood_rows = driver.find_elements(By.XPATH, "(//table)[3]//tbody//tr")
-    for row in flood_rows:
-        cols = row.find_elements(By.TAG_NAME, "td")
-        if len(cols) >= 3:
-            sensor_data.append({
-                "CATEGORY": "flood_sensors",
-                "SENSOR NAME": cols[0].text.strip(),
-                "NORMAL LEVEL": cols[2].text.strip(),
-                "CURRENT": cols[3].text.strip()
-            })
+        # --- Flood Sensors Table (3rd table) ---
+        flood_rows = driver.find_elements(By.XPATH, "(//table)[3]//tbody//tr")
+        for row in flood_rows:
+            cols = row.find_elements(By.TAG_NAME, "td")
+            if len(cols) >= 3:
+                sensor_data.append({
+                    "CATEGORY": "flood_sensors",
+                    "SENSOR NAME": cols[0].text.strip(),
+                    "NORMAL LEVEL": cols[2].text.strip(),
+                    "CURRENT": cols[3].text.strip()
+                })
 
-    # --- Street Flood Table (4th table) ---
-    street_rows = driver.find_elements(By.XPATH, "(//table)[4]//tbody//tr")
-    for row in street_rows:
-        cols = row.find_elements(By.TAG_NAME, "td")
-        if len(cols) >= 5:
-            sensor_data.append({
-                "CATEGORY": "street_flood_sensors",
-                "SENSOR NAME": cols[0].text.strip(),
-                "NORMAL LEVEL": cols[2].text.strip(),
-                "CURRENT": cols[3].text.strip(),
-                "DESCRIPTION": cols[4].text.strip()
-            })
+        # --- Street Flood Table (4th table) ---
+        street_rows = driver.find_elements(By.XPATH, "(//table)[4]//tbody//tr")
+        for row in street_rows:
+            cols = row.find_elements(By.TAG_NAME, "td")
+            if len(cols) >= 5:
+                sensor_data.append({
+                    "CATEGORY": "street_flood_sensors",
+                    "SENSOR NAME": cols[0].text.strip(),
+                    "NORMAL LEVEL": cols[2].text.strip(),
+                    "CURRENT": cols[3].text.strip(),
+                    "DESCRIPTION": cols[4].text.strip()
+                })
 
-    # --- Flood Risk Index Table (5th table) ---
-    risk_rows = driver.find_elements(By.XPATH, "(//table)[5]//tbody//tr")
-    for row in risk_rows:
-        cols = row.find_elements(By.TAG_NAME, "td")
-        if len(cols) >= 4:
-            sensor_data.append({
-                "CATEGORY": "flood_risk_index",
-                "SENSOR NAME": cols[0].text.strip(),
-                "OBS TIME": cols[1].text.strip(),
-                "NORMAL LEVEL": cols[3].text.strip(),
-                "CURRENT": cols[2].text.strip()
-            })
+        # --- Flood Risk Index Table (5th table) ---
+        risk_rows = driver.find_elements(By.XPATH, "(//table)[5]//tbody//tr")
+        for row in risk_rows:
+            cols = row.find_elements(By.TAG_NAME, "td")
+            if len(cols) >= 4:
+                sensor_data.append({
+                    "CATEGORY": "flood_risk_index",
+                    "SENSOR NAME": cols[0].text.strip(),
+                    "OBS TIME": cols[1].text.strip(),
+                    "NORMAL LEVEL": cols[3].text.strip(),
+                    "CURRENT": cols[2].text.strip()
+                })
 
-    # --- River Flow Sensor Table (6th table) ---
-    river_rows = driver.find_elements(By.XPATH, "(//table)[6]//tbody//tr")
-    for row in river_rows:
-        cols = row.find_elements(By.TAG_NAME, "td")
-        if len(cols) >= 3:
-            sensor_data.append({
-                "CATEGORY": "river_flow_sensor",
-                "SENSOR NAME": cols[0].text.strip(),
-                "NORMAL LEVEL": cols[3].text.strip(),
-                "CURRENT": cols[2].text.strip()
-            })
+        # --- River Flow Sensor Table (6th table) ---
+        river_rows = driver.find_elements(By.XPATH, "(//table)[6]//tbody//tr")
+        for row in river_rows:
+            cols = row.find_elements(By.TAG_NAME, "td")
+            if len(cols) >= 3:
+                sensor_data.append({
+                    "CATEGORY": "river_flow_sensor",
+                    "SENSOR NAME": cols[0].text.strip(),
+                    "NORMAL LEVEL": cols[3].text.strip(),
+                    "CURRENT": cols[2].text.strip()
+                })
 
-    # --- Earthquake Sensors Table (7th table) ---
-    eq_rows = driver.find_elements(By.XPATH, "(//table)[7]//tbody//tr")
-    for row in eq_rows:
-        cols = row.find_elements(By.TAG_NAME, "td")
-        if len(cols) >= 3:
-            sensor_data.append({
-                "CATEGORY": "earthquake_sensors",
-                "SENSOR NAME": cols[0].text.strip(),
-                "OBS TIME": cols[1].text.strip(),
-                "CURRENT": cols[2].text.strip()
-            })
+        # --- Earthquake Sensors Table (7th table) ---
+        eq_rows = driver.find_elements(By.XPATH, "(//table)[7]//tbody//tr")
+        for row in eq_rows:
+            cols = row.find_elements(By.TAG_NAME, "td")
+            if len(cols) >= 3:
+                sensor_data.append({
+                    "CATEGORY": "earthquake_sensors",
+                    "SENSOR NAME": cols[0].text.strip(),
+                    "OBS TIME": cols[1].text.strip(),
+                    "CURRENT": cols[2].text.strip()
+                })
 
+        # ✅ This should run after ALL scraping, not inside last loop
         if not sensor_data:
             raise ValueError("No sensor data extracted. Check website structure.")
 
@@ -243,7 +245,6 @@ def scrape_sensor_data():
                 driver.quit()
             except Exception as e:
                 logger.error(f"Error closing WebDriver: {str(e)}")
-
 
 def save_csv(sensor_data):
     df = pd.DataFrame(sensor_data)
