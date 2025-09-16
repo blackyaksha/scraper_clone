@@ -142,142 +142,165 @@ def scrape_sensor_data():
             raise TimeoutError("Failed to load page after multiple attempts")
 
         sensor_data = []
-        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
-        for row in rows:
-            cols = row.find_elements(By.TAG_NAME, "td")
-            if len(cols) >= 5:
-                sensor_name = cols[0].text.strip()
-                location = cols[1].text.strip()
-                current_level = cols[3].text.strip()
-                normal_level = cols[2].text.strip()
-                description = cols[4].text.strip() if len(cols) > 4 else "N/A"
-                sensor_data.append({
-                    "SENSOR NAME": sensor_name,
-                    "OBS TIME": location,
-                    "NORMAL LEVEL": normal_level,
-                    "CURRENT": current_level,
-                    "DESCRIPTION": description
-                })
 
-        if not sensor_data:
-            raise ValueError("No sensor data extracted. Check website structure.")
-        logger.info(f"✅ Successfully scraped {len(sensor_data)} sensor records")
-        save_csv(sensor_data)
-        convert_csv_to_json()
-        logger.info("✅ Sensor data updated successfully")
-    except Exception as e:
-        logger.error(f"❌ Scraping Failed: {str(e)}")
-        raise
-    finally:
-        if driver:
-            try:
-                driver.quit()
-            except Exception as e:
-                logger.error(f"Error closing WebDriver: {str(e)}")
+    # --- Rain Gauge Table (1st table) ---
+    rain_rows = driver.find_elements(By.XPATH, "(//table)[1]//tbody//tr")
+    for row in rain_rows:
+        cols = row.find_elements(By.TAG_NAME, "td")
+        if len(cols) >= 4:
+            sensor_data.append({
+                "CATEGORY": "rain_gauge",
+                "SENSOR NAME": cols[0].text.strip(),
+                "OBS TIME": cols[1].text.strip(),
+                "NORMAL LEVEL": cols[3].text.strip(),
+                "CURRENT": cols[2].text.strip()
+            })
 
-def save_csv(sensor_data):
-    df = pd.DataFrame(sensor_data)
-    df.to_csv(CSV_FILE_PATH, index=False)
-    print("✅ CSV file saved successfully with all sensor data.")
+    # --- Rain Gauge Nowcast Table (2nd table) ---
+    nowcast_rows = driver.find_elements(By.XPATH, "(//table)[2]//tbody//tr")
+    for row in nowcast_rows:
+        cols = row.find_elements(By.TAG_NAME, "td")
+        if len(cols) >= 2:  
+            sensor_data.append({
+                "CATEGORY": "rain_gauge_nowcast",
+                "SENSOR NAME": cols[0].text.strip(),
+                "CURRENT": cols[1].text.strip()
+            })
+
+    # --- Flood Sensors Table (3rd table) ---
+    flood_rows = driver.find_elements(By.XPATH, "(//table)[3]//tbody//tr")
+    for row in flood_rows:
+        cols = row.find_elements(By.TAG_NAME, "td")
+        if len(cols) >= 3:
+            sensor_data.append({
+                "CATEGORY": "flood_sensors",
+                "SENSOR NAME": cols[0].text.strip(),
+                "NORMAL LEVEL": cols[2].text.strip(),
+                "CURRENT": cols[3].text.strip()
+            })
+
+    # --- Street Flood Table (4th table) ---
+    street_rows = driver.find_elements(By.XPATH, "(//table)[4]//tbody//tr")
+    for row in street_rows:
+        cols = row.find_elements(By.TAG_NAME, "td")
+        if len(cols) >= 5:
+            sensor_data.append({
+                "CATEGORY": "street_flood_sensors",
+                "SENSOR NAME": cols[0].text.strip(),
+                "NORMAL LEVEL": cols[2].text.strip(),
+                "CURRENT": cols[3].text.strip(),
+                "DESCRIPTION": cols[4].text.strip()
+            })
+
+    # --- Flood Risk Index Table (5th table) ---
+    risk_rows = driver.find_elements(By.XPATH, "(//table)[5]//tbody//tr")
+    for row in risk_rows:
+        cols = row.find_elements(By.TAG_NAME, "td")
+        if len(cols) >= 4:
+            sensor_data.append({
+                "CATEGORY": "flood_risk_index",
+                "SENSOR NAME": cols[0].text.strip(),
+                "OBS TIME": cols[1].text.strip(),
+                "NORMAL LEVEL": cols[3].text.strip(),
+                "CURRENT": cols[2].text.strip()
+            })
+
+    # --- River Flow Sensor Table (6th table) ---
+    river_rows = driver.find_elements(By.XPATH, "(//table)[6]//tbody//tr")
+    for row in river_rows:
+        cols = row.find_elements(By.TAG_NAME, "td")
+        if len(cols) >= 3:
+            sensor_data.append({
+                "CATEGORY": "river_flow_sensor",
+                "SENSOR NAME": cols[0].text.strip(),
+                "NORMAL LEVEL": cols[3].text.strip(),
+                "CURRENT": cols[2].text.strip()
+            })
+
+    # --- Earthquake Sensors Table (7th table) ---
+    eq_rows = driver.find_elements(By.XPATH, "(//table)[7]//tbody//tr")
+    for row in eq_rows:
+        cols = row.find_elements(By.TAG_NAME, "td")
+        if len(cols) >= 3:
+            sensor_data.append({
+                "CATEGORY": "earthquake_sensors",
+                "SENSOR NAME": cols[0].text.strip(),
+                "OBS TIME": cols[1].text.strip(),
+                "CURRENT": cols[2].text.strip()
+            })
+
+    driver.quit()
+
+    if not sensor_data:
+        raise ValueError("No data found")
+
+    # Save to CSV
+    pd.DataFrame(sensor_data).to_csv(CSV_FILE_PATH, index=False)
+    logger.info(f"✅ Saved {len(sensor_data)} rows with category info")
+    return sensor_data
 
 def convert_csv_to_json():
     df = pd.read_csv(CSV_FILE_PATH)
-    categorized_data = {category: [] for category in SENSOR_CATEGORIES}
 
-    for category, sensors in SENSOR_CATEGORIES.items():
-        for sensor_name in sensors:
-            matching = df[df["SENSOR NAME"].str.casefold() == sensor_name.casefold()]
-            if not matching.empty:
-                row = matching.iloc[0]
-                obs_time = row["OBS TIME"] if "OBS TIME" in df.columns else "N/A"
-                normal_value = row["NORMAL LEVEL"] if "NORMAL LEVEL" in df.columns else "N/A"
-                current_value = row["CURRENT"]
-                description = row["DESCRIPTION"] if "DESCRIPTION" in df.columns else "N/A"
+    categorized = {
+        "rain_gauge": [],   # merged rain_gauge + rain_gauge_nowcast
+        "flood_sensors": [],
+        "street_flood_sensors": [],
+        "flood_risk_index": [],
+        "river_flow_sensor": [],
+        "earthquake_sensors": []
+    }
 
-                # Build entry depending on category
-                if category == "rain_gauge":
-                    sensor_entry = {
-                        "SENSOR NAME": sensor_name,
-                        "CURRENT": current_value
-                    }
-                elif category == "flood_sensors":
-                    sensor_entry = {
-                        "SENSOR NAME": sensor_name,
-                        "NORMAL LEVEL": normal_value,
-                        "CURRENT": current_value
-                    }
-                elif category == "street_flood_sensors":
-                    sensor_entry = {
-                        "SENSOR NAME": sensor_name,
-                        "NORMAL LEVEL": normal_value,
-                        "CURRENT": current_value,
-                        "DESCRIPTION": description
-                    }
-                elif category == "flood_risk_index":
-                    sensor_entry = {
-                        "SENSOR NAME": sensor_name,
-                        "CURRENT": current_value
-                    }
-                elif category == "earthquake_sensors":
-                    sensor_entry = {
-                        "SENSOR NAME": sensor_name,
-                        "CURRENT": current_value
-                    }
-                else:
-                    sensor_entry = {
-                        "SENSOR NAME": sensor_name,
-                        "CURRENT": current_value
-                    }
-            else:
-                # If missing in scraped data, insert placeholders
-                if category == "rain_gauge":
-                    sensor_entry = {"SENSOR NAME": sensor_name, "CURRENT": "N/A"}
-                elif category == "flood_sensors":
-                    sensor_entry = {"SENSOR NAME": sensor_name, "NORMAL LEVEL": "N/A", "CURRENT": "N/A"}
-                elif category == "street_flood_sensors":
-                    sensor_entry = {"SENSOR NAME": sensor_name, "NORMAL LEVEL": "N/A", "CURRENT": "N/A", "DESCRIPTION": "N/A"}
-                elif category in ["flood_risk_index", "earthquake_sensors"]:
-                    sensor_entry = {"SENSOR NAME": sensor_name, "CURRENT": "N/A"}
-                else:
-                    sensor_entry = {"SENSOR NAME": sensor_name, "CURRENT": "N/A"}
+    for _, row in df.iterrows():
+        category = row["CATEGORY"]
 
-            categorized_data[category].append(sensor_entry)
+        # --- Rain Gauge + Nowcast merged (only SENSOR NAME + CURRENT) ---
+        if category in ["rain_gauge", "rain_gauge_nowcast"]:
+            categorized["rain_gauge"].append({
+                "SENSOR NAME": row["SENSOR NAME"],
+                "CURRENT": row.get("CURRENT", "")
+            })
 
-    # Save JSON
-    with open(SENSOR_DATA_FILE, "w") as f:
-        json.dump(categorized_data, f, indent=4)
-
-    # Also save category-specific CSV
-    flat_data = []
-    for category, items in categorized_data.items():
-        for item in items:
-            entry = {"CATEGORY": category}
-            entry.update(item)
-            flat_data.append(entry)
-
-    # Normalize column order per category
-    def reorder_columns(df, category):
-        if category == "rain_gauge":
-            return df[["CATEGORY", "SENSOR NAME", "CURRENT"]]
         elif category == "flood_sensors":
-            return df[["CATEGORY", "SENSOR NAME", "NORMAL LEVEL", "CURRENT"]]
+            categorized["flood_sensors"].append({
+                "SENSOR NAME": row["SENSOR NAME"],
+                "NORMAL LEVEL": row.get("NORMAL LEVEL", ""),
+                "CURRENT": row.get("CURRENT", "")
+            })
+
         elif category == "street_flood_sensors":
-            return df[["CATEGORY", "SENSOR NAME", "NORMAL LEVEL", "CURRENT", "DESCRIPTION"]]
-        elif category in ["flood_risk_index", "earthquake_sensors"]:
-            return df[["CATEGORY", "SENSOR NAME", "CURRENT"]]
-        return df
+            categorized["street_flood_sensors"].append({
+                "SENSOR NAME": row["SENSOR NAME"],
+                "NORMAL LEVEL": row.get("NORMAL LEVEL", ""),
+                "CURRENT": row.get("CURRENT", ""),
+                "DESCRIPTION": row.get("DESCRIPTION", "")
+            })
 
-    # Reorder columns for each category before merging
-    final_df_list = []
-    for category in SENSOR_CATEGORIES.keys():
-        cat_df = pd.DataFrame([d for d in flat_data if d["CATEGORY"] == category])
-        if not cat_df.empty:
-            cat_df = reorder_columns(cat_df, category)
-            final_df_list.append(cat_df)
+        elif category == "flood_risk_index":
+            categorized["flood_risk_index"].append({
+                "SENSOR NAME": row["SENSOR NAME"],
+                "NORMAL LEVEL": row.get("NORMAL LEVEL", ""),
+                "CURRENT": row.get("CURRENT", "")
+            })
 
-    final_df = pd.concat(final_df_list, ignore_index=True)
-    final_df.to_csv(CSV_FILE_PATH, index=False)
-    print("✅ JSON and CSV structured correctly with hardcoded formats.")
+        elif category == "river_flow_sensor":
+            categorized["river_flow_sensor"].append({
+                "SENSOR NAME": row["SENSOR NAME"],
+                "NORMAL LEVEL": row.get("NORMAL LEVEL", ""),
+                "CURRENT": row.get("CURRENT", "")
+            })
+
+        elif category == "earthquake_sensors":
+            categorized["earthquake_sensors"].append({
+                "SENSOR NAME": row["SENSOR NAME"],
+                "CURRENT": row.get("CURRENT", "")
+            })
+
+    # Save to JSON
+    with open(SENSOR_DATA_FILE, "w") as f:
+        json.dump(categorized, f, indent=4)
+
+    logger.info("✅ JSON file updated (rain_gauge + rain_gauge_nowcast merged, only SENSOR NAME + CURRENT)")
 
 @app.get("/api/sensor-data", response_model=Dict[str, List[Dict[str, Any]]])
 async def get_sensor_data():
