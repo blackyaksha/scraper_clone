@@ -128,13 +128,17 @@ def wait_for_page_load(driver, url, max_retries=3):
 
 
 def scrape_sensor_data():
-    driver = setup_chrome_driver()
-    url = "https://web.iriseup.ph/sensor_networks"
+    driver = None
+    try:
+        logger.info("Initializing Chrome WebDriver...")
+        driver = setup_chrome_driver()
+        url = "https://web.iriseup.ph/sensor_networks"
+        logger.info(f"🌍 Fetching data from: {url}")
 
-    if not wait_for_page_load(driver, url):
-        raise TimeoutError("Page failed to load")
+        if not wait_for_page_load(driver, url):
+            raise TimeoutError("Failed to load page after multiple attempts")
 
-    sensor_data = []
+            sensor_data = []
 
     # --- Rain Gauge Table (1st table) ---
     rain_rows = driver.find_elements(By.XPATH, "(//table)[1]//tbody//tr")
@@ -222,22 +226,36 @@ def scrape_sensor_data():
                 "CURRENT": cols[2].text.strip()
             })
 
-    driver.quit()
+        if not sensor_data:
+            raise ValueError("No sensor data extracted. Check website structure.")
 
-    if not sensor_data:
-        raise ValueError("No data found")
+        logger.info(f"✅ Successfully scraped {len(sensor_data)} sensor records")
+        save_csv(sensor_data)
+        convert_csv_to_json()
+        logger.info("✅ Sensor data updated successfully")
 
-    # Save to CSV
-    pd.DataFrame(sensor_data).to_csv(CSV_FILE_PATH, index=False)
-    logger.info(f"✅ Saved {len(sensor_data)} rows with category info")
-    return sensor_data
+    except Exception as e:
+        logger.error(f"❌ Scraping Failed: {str(e)}")
+        raise
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception as e:
+                logger.error(f"Error closing WebDriver: {str(e)}")
+
+
+def save_csv(sensor_data):
+    df = pd.DataFrame(sensor_data)
+    df.to_csv(CSV_FILE_PATH, index=False)
+    print("✅ CSV file saved successfully with all sensor data.")
 
 
 def convert_csv_to_json():
     df = pd.read_csv(CSV_FILE_PATH)
 
     categorized = {
-        "rain_gauge": [],  # merged rain_gauge + rain_gauge_nowcast
+        "rain_gauge": [],   # merged rain_gauge + rain_gauge_nowcast
         "flood_sensors": [],
         "street_flood_sensors": [],
         "flood_risk_index": [],
@@ -295,6 +313,7 @@ def convert_csv_to_json():
         json.dump(categorized, f, indent=4)
 
     logger.info("✅ JSON file updated (rain_gauge + rain_gauge_nowcast merged, only SENSOR NAME + CURRENT)")
+
 
 @app.get("/api/sensor-data")
 async def get_sensor_data():
